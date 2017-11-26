@@ -1,9 +1,19 @@
 #!/usr/bin/env lua
+---
+-- check_host:
+-- (c) Herbert Leuwer, Nov-2017
+--
 local getopt = require "alt_getopt"
 local pretty = require "pl.pretty"
 local snmp = require "snmp"
 
 local VERSION = "1.0"
+
+local host_tabs = {
+   disk = "hrStorage",
+   mem = "hrStorage",
+   load = "hrProcessorLoad"
+}
 
 local long_opts = {
    verbose = "v",
@@ -27,11 +37,12 @@ local retval = {
 }
 
 local USAGE = [[
-usage: check_storage -H hostname -C community OPTIONS")
+usage: check_host -H hostname -C community OPTIONS
    -h,--help                    Get this help
-   -v,--verbose                 Verbose (detailed) output      
+   -v,--verbose                 Verbose (detailed) output
    -H,--hostname=HOSTNAME       Define host ip address
    -C,--community=COMMUNITY     Devine SNMP community
+   -m,--mode = MODE             Mode of check
    -w,--warn=WARNTHRESHOLD      Warning threshold
    -c,--critical=CRITTHRESHOLD  Critical threshold
    -d,--descr=DESCR             Storage description
@@ -41,11 +52,21 @@ usage: check_storage -H hostname -C community OPTIONS")
 ]]
 
 local DESCRIPTION = [[
-This Nagios plugin check any entry in a hosts SNMP 'hrStorage' table.
-The entry in this table can be retrieved in one of the following ways:
-  1) direct adressing via index (option --index)
-  2) indirect addressing via description (option --descr)
-  3) indirect addressing using a substring 
+This Nagios plugin retrieves the following status and performance
+data for host computers:
+   - mode=disk: disk usage
+   - mode=mem:  memory usage
+   - mode=load: processor load per core and average over all cores
+
+The disk to be monitored can be selected in one of the following ways:
+  1) direct adressing via index in SNMP table (option --index), --index=31
+  2) indirect addressing via description (option --descr), e.g. --descr="/"
+  3) indirect addressing using a substring (option --letter), e.g. --letter="C:"
+
+The memory to be monitored is best selected with --descr="Physical Memory" or
+with --letter="Physical" (substring).
+Disk and memory are retrieved from SNMP hrStorage entries.
+The processor load is retrieved from SNMP hrProcessorLoad entries.
 ]]
 
 local function printf(fmt, ...)
@@ -53,21 +74,25 @@ local function printf(fmt, ...)
 end
 
 local function fprintf(fmt, ...)
-   io.stderr:write(string.format(fmt.."\n", ...))
+io.stderr:write(string.format(fmt.."\n", ...))
 end
 
 local function exitUsage()
    printf("%s", DESCRIPTION)
    printf("%s", USAGE)
-   os.exit(retval["OK"])
+   os.exit(retval["OK"], true)
 end
 
 local function exitError(fmt, ...)
-   fprintf("error: "..fmt, ...)
-   os.exit(retval["UNKNOWN"])
+   printf("UKNOWN - check_host returned with error "..fmt, ...)
+   os.exit(retval["UNKNOWN"], true)
 end
 
-local function getIndex(entries, descr, letter)
+local function getData(sess, mode)
+   return sess[host_tabs[mode]]
+end
+
+local function getIndex(entries, descr, letter, mode)
    local index
    -- search disk index
    for k,v in pairs(entries) do
@@ -76,22 +101,24 @@ local function getIndex(entries, descr, letter)
          break
       end
    end
-   if not index then
+   if mode == "disk" or mode == "mem" and not index then
       exitError("Entry '%s' not found.", descr or letter)
    end
    return index
 end
 
 local function main(...)
-   
+
    local host = "localhost"
    local community = "public"
    local descr 
    local index
+   local verbosity = 0
    local mode = "disk"
    local warn, warnp = 0, 0
    local crit, critp = 0, 0
-   
+   local rdata
+
    optarg,optind = alt_getopt.get_opts (arg, "hVvH:C:i:d:m:w:c:l:", long_opts)
 
    for k,v in pairs(optarg) do
@@ -124,45 +151,45 @@ local function main(...)
             crit = tonumber(v)
          end
       elseif k == "v" then
-         verbose = true
+         verbosity = 1
       elseif k == "l" then
          drive = v
          if not have_index and not have_descr then
             have_letter = true
          end
       elseif k == "V" then
-         printf("check_storage version %s", VERSION)
-         os.exit(retval["OK"])
+         printf("check_host version %s", VERSION)
+         os.exit(retval["OK"], true)
       end
    end
+   local sess, err = snmp.open{
+      peer = host,
+      version = SNMPv2,
+      community = community
+   }
+   if not sess then
+      exitError(err)
+   end
 
-   local sess, err = assert(snmp.open{
-                               peer = host,
-                               version = SNMPv2,
-                               community = community
-   })
-   
+   -- read data from device
+   local status, d = pcall(getData, sess, mode)
+   if status ~= true then
+      -- Depending on the captured error in getData we may receive the error code
+      -- within a table. 
+      if type(d) == "table" then
+         exitError(d[1])
+      end
+      exitError(d)
+   end
+
+   if (mode == "disk" or mode == "mem") and not have_index and not have_descr and not have_letter then
+      exitError("Either index or descr must be provided.")
+   end
+
+   if not have_index then
+      index = getIndex(d, descr, drive)
+   end
    if mode == "disk" or mode == "mem" then
-
-      -- read the storage table from device
-      local d = sess.hrStorage
-
-      if not have_index and not have_descr and not have_letter then
-         exitError("Either index or descr must be provided.")
-      end
-      
-      if not have_index then
-         index = getIndex(d, descr, drive)
-      end
-
-      if false then
-         if mode == "disk" then
-            process_disk(d, index)
-         elseif mode == "mem" then
-            process_mem(d, index)
-         end
-      end
-      
       local mb = 1024*1024
       local size = d["hrStorageSize."..index]
       local descr = d["hrStorageDescr."..index]
@@ -184,7 +211,7 @@ local function main(...)
          state = "CRITICAL"
       end
 
-      if verbose then
+      if verbosity > 0 then
          printf("Memory size:   %d kBytes", d["hrMemorySize.0"])
          printf("Storage index: %d", index)
          printf("Storage descr: %s", descr)
@@ -192,21 +219,60 @@ local function main(...)
          printf("Storage size:  %d MBytes", nsize/mb)
          printf("Storage used:  %d MBytes", nused/mb)
          printf("Storage unit:  %d Bytes", bsize)
-                
+
       end
-      
-      local t = {
+       
+      rdata = {
          string.format("%s - %s at %.1f %% with %d MB of %d MB free",
                        state, descr, usage, (nsize-nused)/mb, nsize/mb),
-         string.format("|size=%d free=%d usage=%.1f%%;%d;%d;%d;%d",
+         string.format("size=%d free=%d usage=%.1f%%;%d;%d;%d;%d",
                         nsize, nsize - nused, usage, warnp, critp, 0, 100)
       }
-      printf("%s", table.concat(t))
+   elseif mode == "load" then
+      warn = warn or warnp
+      crit = crit or critp
+      local idata = {}
+      local load = 0
+      local pdata = {} 
+      local state = "OK"
+      local t = {}
+      for k,v in pairs(d) do
+         table.insert(t, {key=k,val=v})
+      end
+      table.sort(t, function(a,b) return a.key < b.key end)
+      for i, e in ipairs(t) do
+         local v = e.val
+         load = load + v
+         if (warn and warn ~= 0 and v > warn) then
+            state = "WARNING"
+         end
+         if (crit and crit ~= 0 and v > crit) then
+            state = "CRITICAL"
+         end
+         table.insert(idata, string.format("%d",v))
+         table.insert(pdata, string.format("load%d=%d%%", i, v))
+      end
+      load = load / #t
+      table.insert(pdata, string.format("load=%.1f%%", load))
+      if verbosity > 0 then
+         printf("Number of cores:        %2d", #t)
+         printf("Average load all cores: %2d %%", load)
+         for i, e in ipairs(t) do
+            printf("Load in core %d:         %2d %%", i, e.val)
+         end
+      end
+      rdata = {
+         string.format("%s - %.1f %% load in %d cores (%s)",
+                       state, load, #t, table.concat(idata, ",")),
+         string.format("%s;%d;%d;%d;%d", table.concat(pdata, " "), warn, crit, 0, 100)
+      }
    end
+   
+   printf("%s", table.concat(rdata, "|"))
 
    sess:close()
    
    return retval[state]
 end
 
-main(unpack(arg))
+return main(unpack(arg))
