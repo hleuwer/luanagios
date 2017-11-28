@@ -166,6 +166,7 @@ local DESCRIPTION = {
    "   - mode=wanstats:   downstream and upstream statistics (data rate in Mbit/s)",
    "   - mode=wlanstats   downstream and upstream packet statistics (data rate in packets/s)",
    "   - mode=lanstats:   LAN statistics",
+   "   - mode=time:       Local time in device",
    "   - mode=ssid:       WLAN SSID and status"
 }
 
@@ -266,10 +267,36 @@ local function tr64_uptime(url)
    return upt, res.NewUpTime
 end
 
-local function tr64_update(url)
-end
 local function tr64_time(url)
+   local res = tr64_call(url, services.time, nil, nil)
+   local date, time, offs
+   local t, o = {},{}
+   string.gsub(res.NewCurrentLocalTime, "([0-9%-]+)T([^%+]+)%+([0-9%:]+)",
+               function(d, t, o)
+                  date = d
+                  time = t
+                  offs = o
+   end)
+   string.gsub(date, "(%d+)%-(%d+)%-(%d+)",
+               function(y, m, d)
+                  t.year = y
+                  t.month = m
+                  t.day = d
+   end)
+   string.gsub(time, "(%d+)%:(%d+)%:(%d+)",
+               function(h, m, s)
+                  t.hour = h
+                  t.min = m
+                  t.sec = s
+   end)
+   string.gsub(offs, "(%d+)%:(%d+)",
+               function(h, m)
+                  o.hour = h
+                  o.min = m
+   end)
+   return t, o, res
 end
+
 local function tr64_wanuptime(url)
    local res = tr64_call(url, services.wan, nil, nil)
    if res.NewConnectionStatus == "Connected" then
@@ -304,7 +331,6 @@ local function tr64_wlanstats(url)
    local res = tr64_call(url, services.wlanstats, nil, nil)
    local txpackets = tonumber(res.NewTotalPacketsSent)
    local rxpackets = tonumber(res.NewTotalPacketsReceived)
-   print("#0#", txpackets, rxpackets, xtime)
    return txpackets, rxpackets, xtime
 end
 
@@ -520,6 +546,23 @@ local function main(...)
                        state, rxp, rxrate, txp, txrate),
          string.format("rxrate=%dpackets/s txrate=%dpackets/s;%d;%d;%d;%d",
                        rxrate, txrate, 0, 0, 0, 0)
+      }
+   elseif mode == "time" then
+      local dat, offs, res = tr64_time(url)
+      local tim = os.time(dat)
+      local retstr = string.gsub(os.date("%D %T", tim),"/",".")
+      if verbosity > 0 then
+         printf("Local time information:")
+         printf("Date and Time: %s", retstr)
+         printf("Offset:        %s:%s", offs.hour, offs.min)
+         printf("Returned:      %s", res.NewCurrentLocalTime)
+         printf("Reference:     %s", os.date("%d.%m.%y %H:%M:%S"))
+         printf("NTP Server 1:  %s", res.NewNTPServer1)
+         printf("NTP Server 2:  %s", res.NewNTPServer2)
+      end
+      rdata = {
+         string.format("%s - Local time is %s", state, retstr),
+         string.format("time=%s reftime=%s;%d;%d;%d;%d", tim, os.time(), 0, 0, 0, 0)
       }
    else      
       exitError("unkown mode %q", mode)
