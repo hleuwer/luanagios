@@ -353,8 +353,6 @@ end
 local function main(...)
 
    local host = "fritz.box"
-   local user = "leuwer"
-   local password = "herbie#1"
    local port = 49000
    local verbosity = 0
    local mode
@@ -458,10 +456,13 @@ local function main(...)
       local txbl, txtl, rxbl, rxtl
       txbl, txtl = get_stats(wanstats_tx_file)
       rxbl, rxtl = get_stats(wanstats_rx_file)
-      put_stats(wanstats_tx_file, txb, txt)
-      put_stats(wanstats_rx_file, rxb, rxt)
       rxrate = (rxb - rxbl) * 8 / (rxt - rxtl)
       txrate = (txb - txbl) * 8 / (txt - txtl)
+      if rxrate < 0 or txrate < 0 then
+         exitError("negative rate")
+      end
+      put_stats(wanstats_tx_file, txb, txt)
+      put_stats(wanstats_rx_file, rxb, rxt)
       if verbosity > 0 then
          printf("WAN Statistics:")
          printf("Received Bytes:    %d Bytes (%.1f MBytes)", rxb, rxb/1e6)
@@ -483,10 +484,13 @@ local function main(...)
       local txbl, rxbl, xtl
       txbl, xtl = get_stats(lanstats_tx_file)
       rxbl, xtl = get_stats(lanstats_rx_file)
-      put_stats(lanstats_tx_file, txb, xt)
-      put_stats(lanstats_rx_file, rxb, xt)
       rxrate = (rxb - rxbl) * 8 / (xt - xtl)
       txrate = (txb - txbl) * 8 / (xt - xtl)
+      if rxrate < 0 or txrate < 0 then
+         exitError("negative rate")
+      end
+      put_stats(lanstats_tx_file, txb, xt)
+      put_stats(lanstats_rx_file, rxb, xt)
       if verbosity > 0 then
          printf("LAN Statistics:")
          printf("Received Bytes:    %d Bytes (%.1f MBytes)", rxb, rxb/1e6)
@@ -529,10 +533,13 @@ local function main(...)
       local txpl, rxpl, xtl
       txpl, xtl = get_stats(wlanstats_tx_file)
       rxpl, xtl = get_stats(wlanstats_rx_file)
-      put_stats(wlanstats_tx_file, txp, xt)
-      put_stats(wlanstats_rx_file, rxp, xt)
       rxrate = (rxp - rxpl) * 8 / (xt - xtl)
       txrate = (txp - txpl) * 8 / (xt - xtl)
+      if rxrate < 0 or txrate < 0 then
+         exitError("negative rate")
+      end
+      put_stats(wlanstats_tx_file, txp, xt)
+      put_stats(wlanstats_rx_file, rxp, xt)
       if verbosity > 0 then
          printf("WLAN Statistics:")
          printf("Received Packets:    %d packets", rxp)
