@@ -456,8 +456,12 @@ local function main(...)
       local txbl, txtl, rxbl, rxtl
       txbl, txtl = get_stats(wanstats_tx_file)
       rxbl, rxtl = get_stats(wanstats_rx_file)
-      rxrate = (rxb - rxbl) * 8 / (rxt - rxtl)
-      txrate = (txb - txbl) * 8 / (txt - txtl)
+      local rxd = rxb - rxbl
+      if rxd < 0 then rxd = rxd + 2^32 end	
+      local txd = txb - txbl
+      if txd < 0 then txd = txd + 2^32 end 
+      rxrate = rxd * 8 / (rxt - rxtl)
+      txrate = txd * 8 / (txt - txtl)
       if rxrate < 0 or txrate < 0 then
          exitError("negative rate")
       end
@@ -484,8 +488,12 @@ local function main(...)
       local txbl, rxbl, xtl
       txbl, xtl = get_stats(lanstats_tx_file)
       rxbl, xtl = get_stats(lanstats_rx_file)
-      rxrate = (rxb - rxbl) * 8 / (xt - xtl)
-      txrate = (txb - txbl) * 8 / (xt - xtl)
+      local txd = txb - txbl
+      if txd < 0 then txd = txd + 2^32 end
+      local rxd = rxb - rxbl
+      if rxd < 0 then rxd = rxd + 2^32 end
+      rxrate = rxd * 8 / (xt - xtl)
+      txrate = txd * 8 / (xt - xtl)
       if rxrate < 0 or txrate < 0 then
          exitError("negative rate")
       end
@@ -533,8 +541,12 @@ local function main(...)
       local txpl, rxpl, xtl
       txpl, xtl = get_stats(wlanstats_tx_file)
       rxpl, xtl = get_stats(wlanstats_rx_file)
-      rxrate = (rxp - rxpl) * 8 / (xt - xtl)
-      txrate = (txp - txpl) * 8 / (xt - xtl)
+      local txd = txp - txpl
+      if txd < 0 then txd = txd + 2^32 end
+      local rxd = rxp - rxpl
+      if rxd < 0 then rxd = rxd + 2^32 end
+      rxrate = rxd * 8 / (xt - xtl)
+      txrate = txd * 8 / (xt - xtl)
       if rxrate < 0 or txrate < 0 then
          exitError("negative rate")
       end
