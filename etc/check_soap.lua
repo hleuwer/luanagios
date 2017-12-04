@@ -30,6 +30,12 @@ local services = {
       action = "GetInfo",
       namespace = "urn:dslforum-org:service"
    },
+   wlanchannelinfo = {
+      url = "/upnp/control/wlanconfig1",
+      service = "WLANConfiguration",
+      action = "GetChannelInfo",
+      namespace = "urn:dslforum-org:service"
+   },
    wlanstats = {
       url = "/upnp/control/wlanconfig1",
       service = "WLANConfiguration",
