@@ -184,6 +184,11 @@ local function fprintf(fmt, ...)
    io.stderr:write(format(fmt.."\n", ...))
 end
 
+local logfile
+local function lprintf(fmt, ...)
+   logfile:write(format(fmt.."\n", ...))
+end
+
 local function exitUsage()
    printf("%s", table.concat(DESCRIPTION,"\n"))
    printf("%s", table.concat(USAGE, "\n"))
@@ -399,6 +404,8 @@ local function main(...)
    local crit, critp = 0, 0
    local rdata
    local special
+
+   logfile = io.open("/tmp/check_fritz.log", "a+")
    
    optarg,optind = alt_getopt.get_opts (arg, "hVvH:C:i:m:w:c:u:P:s:", long_opts)
 
@@ -499,15 +506,25 @@ local function main(...)
       txbl, txtl = get_stats(wanstats_tx_file)
       rxbl, rxtl = get_stats(wanstats_rx_file)
       local rxd = rxb - rxbl
-      if rxd < 0 then rxd = rxd + 2^32 end	
+      if rxd < 0 then
+         lprintf("wanstats rx counter wrap: rxb=%d rxbl=%d time=%s",
+                 rxb, rxbl, os.date())
+         -- rxd = rxd + 2^32
+         rxd = 0
+      end	
       local txd = txb - txbl
-      if txd < 0 then txd = txd + 2^32 end 
+      if txd < 0 then
+         lprintf("wanstats tx counter wrap: txb=%d txbl=%d time=%s",
+                 rxb, rxbl, os.date())
+         -- txd = txd + 2^32
+         txd = 0
+      end 
       rxrate = rxd * 8 / (rxt - rxtl)
       txrate = txd * 8 / (txt - txtl)
       if rxrate < 0 or txrate < 0 then
          exitError(format(
                       "negative rate: txb=%d rxb=%d txbl=%d rxbl=%d time=%s",
-                      txb, rxb, txbl, rxbl,os.date()))
+                      txb, rxb, txbl, rxbl, os.date()))
       end
       put_stats(wanstats_tx_file, txb, txt)
       put_stats(wanstats_rx_file, rxb, rxt)
@@ -587,9 +604,13 @@ local function main(...)
       txpl, xtl = get_stats(wlanstats_tx_file)
       rxpl, xtl = get_stats(wlanstats_rx_file)
       local txd = txp - txpl
-      if txd < 0 then txd = txd + 2^32 end
+      if txd < 0 then
+         txd = txd + 2^32
+      end
       local rxd = rxp - rxpl
-      if rxd < 0 then rxd = rxd + 2^32 end
+      if rxd < 0 then
+         rxd = rxd + 2^32
+      end
       rxrate = rxd * 8 / (xt - xtl)
       txrate = txd * 8 / (xt - xtl)
       if rxrate < 0 or txrate < 0 then
