@@ -7,7 +7,7 @@ local lfs = require "lfs"
 local tmp_path = "/var/tmp/check_fritz/"
 local VERSION = "1.0"
 
-local format = string.format
+local format, tinsert = string.format, table.insert
 
 -- Services database
 
@@ -135,7 +135,8 @@ local long_opts = {
    mode = "m",
    user = 'u',
    password = 'P',
-   special = 's'
+   special = 's',
+   logfile = 'L'
 }
 
 local retval = {
@@ -154,6 +155,7 @@ local USAGE = {
    "   -i,--index                   Index into tables",
    "   -c,--critical=CRITTHRESHOLD  Critical threshold",
    "   -w,--warn=WARNTHRESHOLD      Warning threshold",
+   "   -L, --logfile=LOGFILENAME    Logfile name",
    "   -v,--verbose                 Verbose (detailed) output",
    "   -h,--help                    Get this help",
    "   -V,--version                 Show version info",
@@ -184,8 +186,7 @@ local function fprintf(fmt, ...)
    io.stderr:write(format(fmt.."\n", ...))
 end
 
-local logfile
-local function lprintf(fmt, ...)
+local function logprintf(logfile, fmt, ...)
    logfile:write(format(fmt.."\n", ...))
 end
 
@@ -394,189 +395,144 @@ local function tr64_lanstats(url)
    return txbytes, rxbytes, xtime
 end
 
-local function main(...)
-
-   local host = "fritz.box"
-   local port = 49000
-   local verbosity = 0
-   local mode
-   local warn, warnp = 0, 0
-   local crit, critp = 0, 0
-   local rdata
-   local special
-
-   logfile = io.open("/tmp/check_fritz.log", "a+")
-   
-   optarg,optind = alt_getopt.get_opts (arg, "hVvH:C:i:m:w:c:u:P:s:", long_opts)
-
-   for k,v in pairs(optarg) do
-      if k == "H" then
-         host = v
-      elseif k == "i" then
-         index = v
-         have_index = true
-      elseif k == "m" then
-         mode = v
-      elseif k == "h" then
-         exitUsage()
-      elseif k == "w" then
-         if string.sub(v, -1) == "%" then
-            warnp = tonumber(string.sub(v, 1, -2))
-         else
-            warn = tonumber(v)
-         end
-      elseif k == "c" then
-         if string.sub(v, -1) == "%" then
-            critp = tonumber(string.sub(v, 1, -2))
-         else
-            crit = tonumber(v)
-         end
-      elseif k == "v" then
-         verbosity = 1
-      elseif k == "V" then
-         printf("check_fritz version %s", VERSION)
-         os.exit(retval["OK"], true)
-      elseif k == "u" then
-         user = v
-      elseif k == "P" then
-         password = v
-      elseif k == "s" then
-         special = v
-      end
-   end
-
-   local url = "http://" .. user .. ":" .. password .. "@" .. host .. ":" .. port
-   
-   local state = "OK"
-
-   if mode == "uptime" then
-      local t, seconds = tr64_uptime(url)
-      if verbosity > 0 then
-         printf("Uptime:  %2d seconds", seconds)
-         printf("Days:    %2d", t.days)
-         printf("Hours:   %2d", t.hours)
-         printf("Minutes: %2d", t.minutes)
-         printf("Seconds: %2d", t.seconds)
-      end
-      rdata = {
+local checks = {
+   check_uptime = function(cfg)
+      local t, seconds = tr64_uptime(cfg.url)
+      local vout = {
+         format("Uptime:  %2d seconds", seconds),
+         format("Days:    %2d", t.days),
+         format("Hours:   %2d", t.hours),
+         format("Minutes: %2d", t.minutes),
+         format("Seconds: %2d", t.seconds)
+      }
+      local rdata = {
          format("%s - Uptime %d seconds (%dd %dh %dm %ds)",
-                       state, seconds, t.days, t.hours, t.minutes, t.seconds),
+                state, seconds, t.days, t.hours, t.minutes, t.seconds),
          format("uptime=%d",seconds)
       }
-   elseif mode == "wanuptime" then
-      local t, seconds, res = tr64_wanuptime(url)
-      if verbosity > 0 then
-         printf("WAN Link Status:   %s", res.NewConnectionStatus)
-         printf("WAN Link Type:     %s", res.NewConnectionType)
-         printf("WAN Link Mac:      %s", res.NewMACAddress)
-         printf("WAN IP Address:    %s", res.NewExternalIPAddress)
-         printf("WAN Down Max Rate: %.1f Mbit/s", tonumber(res.NewDownstreamMaxBitRate)/1000)
-         printf("WAN Up Max Rate:   %.1f Mbit/s", tonumber(res.NewUpstreamMaxBitRate)/1000)
-         printf("WAN Link Uptime:   %2d seconds", seconds)
-         printf("  Days:            %2d", t.days)
-         printf("  Hours:           %2d", t.hours)
-         printf("  Minutes:         %2d", t.minutes)
-         printf("  Seconds:         %2d", t.seconds)
-      end
-      rdata = {
+      return rdata, vout
+   end,
+   
+   check_wanuptime = function(cfg)
+      local t, seconds, res = tr64_wanuptime(cfg.url)
+      local vout = {
+         format("WAN Link Status:   %s", res.NewConnectionStatus),
+         format("WAN Link Type:     %s", res.NewConnectionType),
+         format("WAN Link Mac:      %s", res.NewMACAddress),
+         format("WAN IP Address:    %s", res.NewExternalIPAddress),
+         format("WAN Down Max Rate: %.1f Mbit/s", tonumber(res.NewDownstreamMaxBitRate)/1000),
+         format("WAN Up Max Rate:   %.1f Mbit/s", tonumber(res.NewUpstreamMaxBitRate)/1000),
+         format("WAN Link Uptime:   %2d seconds", seconds),
+         format("  Days:            %2d", t.days),
+         format("  Hours:           %2d", t.hours),
+         format("  Minutes:         %2d", t.minutes),
+         format("  Seconds:         %2d", t.seconds)
+      }
+      local rdata = {
          format("%s - WAN uptime %d seconds (%dd %dh %dm %ds)",
-                       state, seconds, t.days, t.hours, t.minutes, t.seconds),
+                state, seconds, t.days, t.hours, t.minutes, t.seconds),
          format("wanuptime=%d",seconds)
       }
-   elseif mode == "wanstatus" then
-      local nstatus, res = tr64_wanstatus(url)
-      if verbosity > 0 then
-         printf("WAN Link Status:   %s", res.NewConnectionStatus)
-         printf("WAN Link Type:     %s", res.NewConnectionType)
-         printf("WAN Link Mac:      %s", res.NewMACAddress)
-         printf("WAN IP Address:    %s", res.NewExternalIPAddress)
-         printf("WAN Down Max Rate: %.1f Mbit/s", tonumber(res.NewDownstreamMaxBitRate)/1000)
-         printf("WAN Up Max Rate:   %.1f Mbit/s", tonumber(res.NewUpstreamMaxBitRate)/1000)
-         printf("WAN Link Uptime:   %2d seconds", tonumber(res.NewUptime))
-      end
-      rdata ={
+      return rdata, vout
+   end,
+   
+   check_wanstatus = function(cfg)
+      local nstatus, res = tr64_wanstatus(cfg.url)
+      local vout = {
+         format("WAN Link Status:   %s", res.NewConnectionStatus),
+         format("WAN Link Type:     %s", res.NewConnectionType),
+         format("WAN Link Mac:      %s", res.NewMACAddress),
+         format("WAN IP Address:    %s", res.NewExternalIPAddress),
+         format("WAN Down Max Rate: %.1f Mbit/s", tonumber(res.NewDownstreamMaxBitRate)/1000),
+         format("WAN Up Max Rate:   %.1f Mbit/s", tonumber(res.NewUpstreamMaxBitRate)/1000),
+         format("WAN Link Uptime:   %2d seconds", tonumber(res.NewUptime))
+      }
+      local rdata ={
          format("%s - WAN status %d (%s)", state, nstatus, res.NewConnectionStatus),
          format("wanstatus=%d", nstatus)
       }
-   elseif mode == "wanstats" then
-      local txb, rxb, txt, rxt = tr64_wanstats(url)
-      local wanstats_tx_file = host .. "__wanstats_tx"
-      local wanstats_rx_file = host .. "__wanstats_rx"
+      return rdata, vout
+   end,
+   
+   check_wanstats = function(cfg)
+      local txb, rxb, txt, rxt = tr64_wanstats(cfg.url)
+      local wanstats_tx_file = cfg.host .. "__wanstats_tx"
+      local wanstats_rx_file = cfg.host .. "__wanstats_rx"
       local txbl, txtl, rxbl, rxtl
       txbl, txtl = get_stats(wanstats_tx_file)
       rxbl, rxtl = get_stats(wanstats_rx_file)
       local rxd = rxb - rxbl
-      if rxd < 0 then
-         lprintf("wanstats rx counter wrap: rxb=%d rxbl=%d time=%s",
-                 rxb, rxbl, os.date())
-         -- rxd = rxd + 2^32
-         rxd = 0
-      end	
+      -- n bit counter wraps with break of uplink; no measurement possible then
+      if rxd < 0 then rxd = 0 end	
       local txd = txb - txbl
-      if txd < 0 then
-         lprintf("wanstats tx counter wrap: txb=%d txbl=%d time=%s",
-                 rxb, rxbl, os.date())
-         -- txd = txd + 2^32
-         txd = 0
-      end 
+      if txd < 0 then txd = 0 end 
       rxrate = rxd * 8 / (rxt - rxtl)
       txrate = txd * 8 / (txt - txtl)
       if rxrate < 0 or txrate < 0 then
+         -- Should never happen because we try to compensate counter wrap above
          exitError(format(
                       "negative rate: txb=%d rxb=%d txbl=%d rxbl=%d time=%s",
                       txb, rxb, txbl, rxbl, os.date()))
       end
       put_stats(wanstats_tx_file, txb, txt)
       put_stats(wanstats_rx_file, rxb, rxt)
-      if verbosity > 0 then
-         printf("WAN Statistics:")
-         printf("Received Bytes:    %d Bytes (%.1f MBytes)", rxb, rxb/1e6)
-         printf("Transmitted Bytes: %d Bytes (%.1f MBytes)", txb, txb/1e6)
-         printf("Receive Rate:      %.1f bit/s", rxrate)
-         printf("Transmit Rate:     %.1f bit/s", txrate)
-         printf("Time Interval:     %d %d seconds", txt - txtl, rxt - rxtl)
-      end
-      rdata = {
-         format("%s - RX: %d Bytes (%.1f bit/s), TX: %d Bytes (%.1f bit/s)",
-                       state, rxb, rxrate, txb, txrate),
-         format("rxrate=%dbit/s txrate=%dbit/s;%d;%d;%d;%d",
-                       rxrate, txrate, 0, 0, 0, 0)
+      local vout = {
+         format("WAN Statistics:"),
+         format("Received Bytes:    %d Bytes (%.1f MBytes)", rxb, rxb/1e6),
+         format("Transmitted Bytes: %d Bytes (%.1f MBytes)", txb, txb/1e6),
+         format("Receive Rate:      %.1f bit/s", rxrate),
+         format("Transmit Rate:     %.1f bit/s", txrate),
+         format("Time Interval:     %d %d seconds", txt - txtl, rxt - rxtl)
       }
-   elseif mode == "lanstats" then
-      local txb, rxb, xt = tr64_lanstats(url)
-      local lanstats_tx_file = host .. "__lanstats_tx"
-      local lanstats_rx_file = host .. "__lanstats_rx"
+      local rdata = {
+         format("%s - RX: %d Bytes (%.1f bit/s), TX: %d Bytes (%.1f bit/s)",
+                state, rxb, rxrate, txb, txrate),
+         format("rxrate=%dbit/s txrate=%dbit/s;%d;%d;%d;%d",
+                rxrate, txrate, 0, 0, 0, 0)
+      }
+      return rdata, vout
+   end,
+   
+   check_lanstats = function(cfg)
+      local txb, rxb, xt = tr64_lanstats(cfg.url)
+      local lanstats_tx_file = cfg.host .. "__lanstats_tx"
+      local lanstats_rx_file = cfg.host .. "__lanstats_rx"
       local txbl, rxbl, xtl
       txbl, xtl = get_stats(lanstats_tx_file)
       rxbl, xtl = get_stats(lanstats_rx_file)
       local txd = txb - txbl
+      -- compensate 32 bit counter wrap
       if txd < 0 then txd = txd + 2^32 end
       local rxd = rxb - rxbl
       if rxd < 0 then rxd = rxd + 2^32 end
       rxrate = rxd * 8 / (xt - xtl)
       txrate = txd * 8 / (xt - xtl)
       if rxrate < 0 or txrate < 0 then
+         -- Should never happen because we try to compensate counter wrap above
          exitError(format(
                       "negative rate: txb=%d rxb=%d txbl=%d rxbl=%d time=%s",
                       txb, rxb, txbl, rxbl, os.date()))
       end
       put_stats(lanstats_tx_file, txb, xt)
       put_stats(lanstats_rx_file, rxb, xt)
-      if verbosity > 0 then
-         printf("LAN Statistics:")
-         printf("Received Bytes:    %d Bytes (%.1f MBytes)", rxb, rxb/1e6)
-         printf("Transmitted Bytes: %d Bytes (%.1f MBytes)", txb, txb/1e6)
-         printf("Receive Rate:      %.1f bit/s", rxrate)
-         printf("Transmit Rate:     %.1f bit/s", txrate)
-         printf("Time Interval:     %d seconds", xt - xtl)
-      end
-      rdata = {
+      local vout = {
+         format("LAN Statistics:"),
+         format("Received Bytes:    %d Bytes (%.1f MBytes)", rxb, rxb/1e6),
+         format("Transmitted Bytes: %d Bytes (%.1f MBytes)", txb, txb/1e6),
+         format("Receive Rate:      %.1f bit/s", rxrate),
+         format("Transmit Rate:     %.1f bit/s", txrate),
+         format("Time Interval:     %d seconds", xt - xtl)
+      }
+      local rdata = {
          format("%s - RX: %d Bytes (%.1f bit/s), TX: %d Bytes (%.1f bit/s)",
-                       state, rxb, rxrate, txb, txrate),
+                state, rxb, rxrate, txb, txrate),
          format("rxrate=%dbit/s txrate=%dbit/s;%d;%d;%d;%d", rxrate, txrate, 0, 0, 0, 0)
       }
-   elseif mode == "ssid" then
-      local ssid, res = tr64_ssid(url)
+      return rdata, vout
+   end,
+   
+   check_ssid = function(cfg)
+      local ssid, res = tr64_ssid(cfg.url)
       local retstr
       if res.NewEnable == "0" or res.NewStatus == "Down" then
          state = "CRITICAL"
@@ -584,119 +540,199 @@ local function main(...)
       else
          retstr = format("WLAN %q is up", res.NewSSID)
       end
-      if verbosity > 0 then
-         printf("WLAN status:")
-         printf("SSID:       %s", res.NewSSID)
-         printf("Enabled:    %s", res.NewEnable)
-         printf("Status:     %s", res.NewStatus)
-         printf("BeaconType: %s", res.NewBeaconType)
-         printf("BSSID:      %s", res.NewBSSID)
-      end
-      rdata = {
+      local vout = {
+         format("WLAN status:"),
+         format("SSID:       %s", res.NewSSID),
+         format("Enabled:    %s", res.NewEnable),
+         format("Status:     %s", res.NewStatus),
+         format("BeaconType: %s", res.NewBeaconType),
+         format("BSSID:      %s", res.NewBSSID)
+      }
+      
+      local rdata = {
          format("%s - %s", state, retstr),
          format("enable=%d status=%s", res.NewEnable, res.Newstatus) 
       }
-   elseif mode == "wlanstats" then
-      local txp, rxp, xt = tr64_wlanstats(url)
-      local wlanstats_tx_file = host .. "__wlanstats_tx"
-      local wlanstats_rx_file = host .. "__wlanstats_rx"
+      return rdata, vout
+   end,
+   
+   check_wlanstats = function(cfg)
+      local txp, rxp, xt = tr64_wlanstats(cfg.url)
+      local wlanstats_tx_file = cfg.host .. "__wlanstats_tx"
+      local wlanstats_rx_file = cfg.host .. "__wlanstats_rx"
       local txpl, rxpl, xtl
       txpl, xtl = get_stats(wlanstats_tx_file)
       rxpl, xtl = get_stats(wlanstats_rx_file)
       local txd = txp - txpl
-      if txd < 0 then
-         txd = txd + 2^32
-      end
+      -- compensate 32 bit counter wrap
+      if txd < 0 then txd = txd + 2^32 end
       local rxd = rxp - rxpl
-      if rxd < 0 then
-         rxd = rxd + 2^32
-      end
+      if rxd < 0 then rxd = rxd + 2^32 end
       rxrate = rxd * 8 / (xt - xtl)
       txrate = txd * 8 / (xt - xtl)
       if rxrate < 0 or txrate < 0 then
+         -- Should never happen because we try to compensate counter wrap above
          exitError(format(
                       "negative rate: txp=%d rxp=%d txpl=%d rxpl=%d time=%s",
                       txp, rxp, txpl, rxpl, os.date()))
       end
       put_stats(wlanstats_tx_file, txp, xt)
       put_stats(wlanstats_rx_file, rxp, xt)
-      if verbosity > 0 then
-         printf("WLAN Statistics:")
-         printf("Received Packets:    %d packets", rxp)
-         printf("Transmitted Packets: %d packets", txp)
-         printf("Receive Rate:        %.1f packets/s", rxrate)
-         printf("Transmit Rate:       %.1f packets/s", txrate)
-         printf("Time Interval:       %d seconds", xt - xtl)
-      end
-      rdata = {
-         format("%s - RX: %d packets (%.1f packets/s), TX: %d packets (%.1f packets/s)",
-                       state, rxp, rxrate, txp, txrate),
-         format("rxrate=%dpackets/s txrate=%dpackets/s;%d;%d;%d;%d",
-                       rxrate, txrate, 0, 0, 0, 0)
+      local vout = {
+         format("WLAN Statistics:"),
+         format("Received Packets:    %d packets", rxp),
+         format("Transmitted Packets: %d packets", txp),
+         format("Receive Rate:        %.1f packets/s", rxrate),
+         format("Transmit Rate:       %.1f packets/s", txrate),
+         format("Time Interval:       %d seconds", xt - xtl)
       }
-   elseif mode == "time" then
-      local dat, offs, res = tr64_time(url)
+      local rdata = {
+         format("%s - RX: %d packets (%.1f packets/s), TX: %d packets (%.1f packets/s)",
+                state, rxp, rxrate, txp, txrate),
+         format("rxrate=%dpackets/s txrate=%dpackets/s;%d;%d;%d;%d",
+                rxrate, txrate, 0, 0, 0, 0)
+      }
+      return rdata, vout
+   end,
+   
+   check_time = function(cfg)
+      local dat, offs, res = tr64_time(cfg.url)
       local tim = os.time(dat)
       local retstr = string.gsub(os.date("%D %T", tim),"/",".")
-      if verbosity > 0 then
-         printf("Local time information:")
-         printf("Date and Time: %s", retstr)
-         printf("Offset:        %s:%s", offs.hour, offs.min)
-         printf("Returned:      %s", res.NewCurrentLocalTime)
-         printf("Reference:     %s", os.date("%d.%m.%y %H:%M:%S"))
-         printf("NTP Server 1:  %s", res.NewNTPServer1)
-         printf("NTP Server 2:  %s", res.NewNTPServer2)
-      end
-      rdata = {
+      local vout = {
+         format("Local time information:"),
+         format("Date and Time: %s", retstr),
+         format("Offset:        %s:%s", offs.hour, offs.min),
+         format("Returned:      %s", res.NewCurrentLocalTime),
+         format("Reference:     %s", os.date("%d.%m.%y %H:%M:%S")),
+         format("NTP Server 1:  %s", res.NewNTPServer1),
+         format("NTP Server 2:  %s", res.NewNTPServer2)
+      }
+      local rdata = {
          format("%s - Local time is %s", state, retstr),
          format("time=%s reftime=%s", tim, os.time())
       }
-   elseif mode == "wlanchannel" then
-      local ch, chl = tr64_wlanchannel(url)
-      if verbosity > 0 then
-         printf("Channel information:")
-         printf("Active Channel:     %s", ch)
-         printf("Available Channels: %s", chl) 
-      end
-      rdata = {
+      return rdata, vout
+   end,
+   
+   check_wlanchannel = function(cfg)
+      local ch, chl = tr64_wlanchannel(cfg.url)
+      local vout = {
+         format("Channel information:"),
+         format("Active Channel:     %s", ch),
+         format("Available Channels: %s", chl)
+      }
+      local rdata = {
          format("%s - active channel %s", state, ch),
          format("channel=%s", ch)
       }
-   elseif mode == "wlandevs" then
-      local ndev, devs = tr64_wlandevs(url, special)
-      if verbosity > 0 then
-         printf("WLAN device information:")
-         if special == "auth-only" then
-            printf("Number of devices known and authenticated: %d", ndev)
-         else
-            printf("Number of devices known: %d", ndev)
-         end
-         for i = 1, ndev do
-            local dev = devs[i]
-            printf("  Device %d:", i)
-            printf("  MacAddress:      %s", dev.MacAddress)
-            printf("  IpAddress:       %s", dev.IpAddress)
-            printf("  AuthState:       %s", dev.AuthState)
-            printf("  Speed:           %s Mbit/s", dev.Speed)
-            printf("  Signal Strength: %d %%", tonumber(dev.SignalStrength))
-         end
-      end
-      if special == "auth-only" then
-         rdata = {
-         format("%s - %d devices authenticated", state, ndev),
-         format("ndev=%d", ndev)
-         }
+      return rdata, vout
+   end,
+   
+   check_wlandevs = function(cfg)
+      local ndev, devs = tr64_wlandevs(cfg.url, cfg.special)
+      local vout = {
+         format("WLAN device information:")
+      }
+      if cfg.special == "auth-only" then
+         tinsert(vout, format("Number of devices known and authenticated: %d", ndev))
       else
-         rdata = {
-         format("%s - %d devices kown", state, ndev),
-         format("ndev=%d", ndev)
-         }
+         tinsert(vout, format("Number of devices known: %d", ndev))
       end
-   else      
-      exitError("unkown mode %q", mode)
+      for i = 1, ndev do
+         local dev = devs[i]
+         tinsert(vout, format("  Device %d:", i))
+         tinsert(vout, format("  MacAddress:      %s", dev.MacAddress))
+         tinsert(vout, format("  IpAddress:       %s", dev.IpAddress))
+         tinsert(vout, format("  AuthState:       %s", dev.AuthState))
+         tinsert(vout, format("  Speed:           %s Mbit/s", dev.Speed))
+         tinsert(vout, format("  Signal Strength: %d %%", tonumber(dev.SignalStrength)))
+      end
+      local rdata = {}
+      if cfg.special == "auth-only" then
+         tinsert(rdata, format("%s - %d devices authenticated", state, ndev))
+         tinsert(rdata, format("ndev=%d", ndev))
+      else
+         tinsert(rdata, format("%s - %d devices kown", state, ndev))
+         tinsert(rdata, format("ndev=%d", ndev))
+      end
+      return rdata, vout
    end
+}
+
+local function main(...)
+
+   local cfg = {
+      host = "fritz.box",
+      port = 49000,
+      warn = 0,
+      warnp = 0,
+      crit= 0,
+      critp = 0,
+      mode = nil,
+      verbosity = 0,
+      logfilename = "tmp/check_fritz.log",
+      logfile = nil,
+      state = "OK"
+   }
+   
+   optarg,optind = alt_getopt.get_opts (arg, "hVvH:C:i:m:w:c:u:P:s:L:", long_opts)
+
+   for k,v in pairs(optarg) do
+      if k == "H" then
+         cfg.host = v
+      elseif k == "i" then
+         cfg.index = v
+         cfg.have_index = true
+      elseif k == "m" then
+         cfg.mode = v
+      elseif k == "h" then
+         exitUsage()
+      elseif k == "w" then
+         if string.sub(v, -1) == "%" then
+            cfg.warnp = tonumber(string.sub(v, 1, -2))
+         else
+            cfg.warn = tonumber(v)
+         end
+      elseif k == "c" then
+         if string.sub(v, -1) == "%" then
+            cfg.critp = tonumber(string.sub(v, 1, -2))
+         else
+            cfg.crit = tonumber(v)
+         end
+      elseif k == "v" then
+         cfg.verbosity = 1
+      elseif k == "V" then
+         printf("check_fritz version %s", VERSION)
+         os.exit(retval["OK"], true)
+      elseif k == "u" then
+         cfg.user = v
+      elseif k == "P" then
+         cfg.password = v
+      elseif k == "s" then
+         cfg.special = v
+      elseif k == "L" then
+         cfg.logfilename = v
+      end
+   end
+
+   cfg.url = "http://" .. cfg.user .. ":" .. cfg.password .. "@" .. cfg.host .. ":" .. cfg.port
+   cfg.logfile = io.open(cfg.logfilename,  "a+")
+   
+   local rdata, vout
+
+   if cfg.mode ~= nil then
+      rdata, vout = checks["check_"..cfg.mode](cfg)
+   else
+      exitError("unkown mode %q", cfg.mode)
+   end
+
+   if cfg.verbosity > 0 then
+      printf("%s", table.concat(vout, "\n"))
+   end
+   
    printf("%s", table.concat(rdata, "|"))
-   return retval[state]
+   return retval[cfg.state]
 end
 
 return main(unpack(arg))

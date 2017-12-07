@@ -139,16 +139,17 @@ local services = {
    }
 }
 local svc = services[arg[2]]
+local action = arg[5] or svc.action
 local parm = {
    -- soapversion = "1.1",
    url = "http://" .. user .. ":" .. pw .."@" .. host .. ":" .. port .. svc.url,
    -- soapaction only require for soap 1.1
-   soapaction = svc.namespace .. ":" .. svc.service .. ":1#" .. svc.action,
+   soapaction = svc.namespace .. ":" .. svc.service .. ":1#" .. action,
    namespace = svc.namespace .. ":" .. svc.service .. ":" .. (svc.index or "1"),
-   method = svc.action,
+   method = action,
    auth = "digest",
    entries = { -- `tag' will be filled with `method' field
-      tag = "u:"..svc.action,
+      tag = "u:"..action,
       svc.param
    }
 }
