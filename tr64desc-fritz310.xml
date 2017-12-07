@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<root xmlns="urn:dslforum-org:device-1-0">
+<specVersion>
+<major>1</major>
+<minor>0</minor>
+</specVersion>
+<device>
+<deviceType>urn:dslforum-org:device:InternetGatewayDevice:1</deviceType>
+<friendlyName>fritz310</friendlyName>
+<manufacturer>AVM</manufacturer>
+<manufacturerURL>www.avm.de</manufacturerURL>
+<modelDescription>FRITZ!WLAN Repeater 310</modelDescription>
+<modelName>FRITZ!WLAN Repeater 310</modelName>
+<modelNumber> - avm</modelNumber>
+<modelURL>www.avm.de</modelURL>
+<UDN>uuid:739f2409-bccb-40e7-8e6c-3481C4E190B7</UDN>
+<iconList>
+<icon>
+<mimetype>image/gif</mimetype>
+<width>118</width>
+<height>119</height>
+<depth>8</depth>
+<url>/ligd.gif</url>
+</icon>
+</iconList>
+<serviceList>
+<service>
+<serviceType>urn:dslforum-org:service:DeviceInfo:1</serviceType>
+<serviceId>urn:DeviceInfo-com:serviceId:DeviceInfo1</serviceId>
+<controlURL>/upnp/control/deviceinfo</controlURL>
+<eventSubURL>/upnp/control/deviceinfo</eventSubURL>
+<SCPDURL>/deviceinfoSCPD.xml</SCPDURL>
+</service>
+<service>
+<serviceType>urn:dslforum-org:service:DeviceConfig:1</serviceType>
+<serviceId>urn:DeviceConfig-com:serviceId:DeviceConfig1</serviceId>
+<controlURL>/upnp/control/deviceconfig</controlURL>
+<eventSubURL>/upnp/control/deviceconfig</eventSubURL>
+<SCPDURL>/deviceconfigSCPD.xml</SCPDURL>
+</service>
+<service>
+<serviceType>urn:dslforum-org:service:UserInterface:1</serviceType>
+<serviceId>urn:UserInterface-com:serviceId:UserInterface1</serviceId>
+<controlURL>/upnp/control/userif</controlURL>
+<eventSubURL>/upnp/control/userif</eventSubURL>
+<SCPDURL>/userifSCPD.xml</SCPDURL>
+</service>
+</serviceList>
+<deviceList>
+<device>
+<deviceType>urn:dslforum-org:device:LANDevice:1</deviceType>
+<friendlyName>LANDevice - FRITZ!WLAN Repeater 310</friendlyName>
+<manufacturer>AVM</manufacturer>
+<manufacturerURL>www.avm.de</manufacturerURL>
+<modelDescription>LANDevice - FRITZ!WLAN Repeater 310</modelDescription>
+<modelName>LANDevice - FRITZ!WLAN Repeater 310</modelName>
+<modelNumber> - avm</modelNumber>
+<modelURL>www.avm.de</modelURL>
+<UDN>uuid:75802409-bccb-40e7-8e6b-3481C4E190B7</UDN>
+<UPC>AVM TR-064</UPC>
+<serviceList>
+<service>
+<serviceType>urn:dslforum-org:service:WLANConfiguration:1</serviceType>
+<serviceId>urn:WLANConfiguration-com:serviceId:WLANConfiguration1</serviceId>
+<controlURL>/upnp/control/wlanconfig1</controlURL>
+<eventSubURL>/upnp/control/wlanconfig1</eventSubURL>
+<SCPDURL>/wlanconfigSCPD.xml</SCPDURL>
+</service>
+<!-- 1 --><service><serviceType>urn:dslforum-org:service:WLANConfiguration:2</serviceType><serviceId>urn:WLANConfiguration-com:serviceId:WLANConfiguration2</serviceId><controlURL>/upnp/control/wlanconfig2</controlURL><eventSubURL>/upnp/control/wlanconfig2</eventSubURL><SCPDURL>/wlanconfigSCPD.xml</SCPDURL></service>
+<service>
+<serviceType>urn:dslforum-org:service:Hosts:1</serviceType>
+<serviceId>urn:LanDeviceHosts-com:serviceId:Hosts1</serviceId>
+<controlURL>/upnp/control/hosts</controlURL>
+<eventSubURL>/upnp/control/hosts</eventSubURL>
+<SCPDURL>/hostsSCPD.xml</SCPDURL>
+</service>
+</serviceList>
+</device>
+</deviceList>
+<presentationURL>http://fritz.repeater</presentationURL>
+</device>
+</root>
