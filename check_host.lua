@@ -12,7 +12,8 @@ local VERSION = "1.0"
 local host_tabs = {
    disk = "hrStorage",
    mem = "hrStorage",
-   load = "hrProcessorLoad"
+   load = "hrProcessorLoad",
+   uptime = "sysUpTime"
 }
 
 local long_opts = {
@@ -36,38 +37,38 @@ local retval = {
    UNKNOWN = 3
 }
 
-local USAGE = [[
-usage: check_host -H hostname -C community OPTIONS
-   -h,--help                    Get this help
-   -v,--verbose                 Verbose (detailed) output
-   -H,--hostname=HOSTNAME       Define host ip address
-   -C,--community=COMMUNITY     Devine SNMP community
-   -m,--mode = MODE             Mode of check
-   -w,--warn=WARNTHRESHOLD      Warning threshold
-   -c,--critical=CRITTHRESHOLD  Critical threshold
-   -d,--descr=DESCR             Storage description
-   -l,--letter=LETTER           Alternate storage description
-   -i,--index                   Index in storage table
-   -V,--version                 Show version info
-]]
+local USAGE = {
+   "usage: check_host -H hostname -C community OPTIONS",
+   "   -h,--help                    Get this help",
+   "   -v,--verbose                 Verbose (detailed) output",
+   "   -H,--hostname=HOSTNAME       Define host ip address",
+   "   -C,--community=COMMUNITY     Devine SNMP community",
+   "   -m,--mode = MODE             Mode of check",
+   "   -w,--warn=WARNTHRESHOLD      Warning threshold",
+   "   -c,--critical=CRITTHRESHOLD  Critical threshold",
+   "   -d,--descr=DESCR             Storage description",
+   "   -l,--letter=LETTER           Alternate storage description",
+   "   -i,--index                   Index in storage table",
+   "   -V,--version                 Show version info"
+}
 
-local DESCRIPTION = [[
-This Nagios plugin retrieves the following status and performance
-data for host computers:
-   - mode=disk: disk usage
-   - mode=mem:  memory usage
-   - mode=load: processor load per core and average over all cores
-
-The disk to be monitored can be selected in one of the following ways:
-  1) direct adressing via index in SNMP table (option --index), --index=31
-  2) indirect addressing via description (option --descr), e.g. --descr="/"
-  3) indirect addressing using a substring (option --letter), e.g. --letter="C:"
-
-The memory to be monitored is best selected with --descr="Physical Memory" or
-with --letter="Physical" (substring).
-Disk and memory are retrieved from SNMP hrStorage entries.
-The processor load is retrieved from SNMP hrProcessorLoad entries.
-]]
+local DESCRIPTION = {
+   "This Nagios plugin retrieves the following status and performance data for host computers:",
+   "  - mode=disk:   disk usage",
+   "  - mode=mem:    memory usage",
+   "  - mode=load:   processor load per core and average over all cores",
+   "  - mode=uptime: uptime of the host",
+   " ",
+   "The disk to be monitored can be selected in one of the following ways:",
+   "  1) direct adressing via index in SNMP table (option --index), --index=31",
+   "  2) indirect addressing via description (option --descr), e.g. --descr='/'",
+   "  3) indirect addressing using a substring (option --letter), e.g. --letter='C:'",
+   " ",
+   "The memory to be monitored is best selected with --descr='Physical Memory' or",
+   "with --letter='Physical' (substring).",
+   "Disk and memory are retrieved from SNMP hrStorage entries.",
+   "The processor load is retrieved from SNMP hrProcessorLoad entries."
+}
 
 local function printf(fmt, ...)
    io.stdout:write(string.format(fmt.."\n", ...))
@@ -78,8 +79,9 @@ io.stderr:write(string.format(fmt.."\n", ...))
 end
 
 local function exitUsage()
-   printf("%s", DESCRIPTION)
-   printf("%s", USAGE)
+   printf("%s", table.concat(DESCRIPTION,"\n"))
+   printf("")
+   printf("%s", table.concat(USAGE, "\n"))
    os.exit(retval["OK"], true)
 end
 
@@ -118,7 +120,8 @@ local function main(...)
    local warn, warnp = 0, 0
    local crit, critp = 0, 0
    local rdata
-
+   local have_index, have_descr
+   
    optarg,optind = alt_getopt.get_opts (arg, "hVvH:C:i:d:m:w:c:l:", long_opts)
 
    for k,v in pairs(optarg) do
@@ -181,15 +184,16 @@ local function main(...)
       end
       exitError(d)
    end
-
-   if (mode == "disk" or mode == "mem") and not have_index and not have_descr and not have_letter then
-      exitError("Either index or descr must be provided.")
-   end
-
-   if not have_index then
-      index = getIndex(d, descr, drive)
-   end
+            
    if mode == "disk" or mode == "mem" then
+
+      if not have_index and not have_descr and not have_letter then
+         exitError("Either index or descr must be provided.")
+      end
+      if not have_index then
+         index = getIndex(d, descr, drive)
+      end
+
       local mb = 1024*1024
       local size = d["hrStorageSize."..index]
       local descr = d["hrStorageDescr."..index]
@@ -203,14 +207,14 @@ local function main(...)
       -- check notifications
       state = "OK"
       if ((warn and warn ~= 0 and size*bsize > warn) or
-      (warnp and warnp ~=0 and usage > warnp)) then
+         (warnp and warnp ~=0 and usage > warnp)) then
          state = "WARNING"
       end
       if ((crit and crit ~= 0 and size*bsize > crit) or
-      (critp and critp ~= 0 and usage > critp)) then
+         (critp and critp ~= 0 and usage > critp)) then
          state = "CRITICAL"
       end
-
+      
       if verbosity > 0 then
          printf("Memory size:   %d kBytes", d["hrMemorySize.0"])
          printf("Storage index: %d", index)
@@ -219,14 +223,14 @@ local function main(...)
          printf("Storage size:  %d MBytes", nsize/mb)
          printf("Storage used:  %d MBytes", nused/mb)
          printf("Storage unit:  %d Bytes", bsize)
-
+         
       end
-       
+      
       rdata = {
          string.format("%s - %s at %.1f %% with %d MB of %d MB free",
                        state, descr, usage, (nsize-nused)/mb, nsize/mb),
          string.format("size=%d free=%d usage=%.1f%%;%d;%d;%d;%d",
-                        nsize, nsize - nused, usage, warnp, critp, 0, 100)
+                       nsize, nsize - nused, usage, warnp, critp, 0, 100)
       }
    elseif mode == "load" then
       warn = warn or warnp
@@ -266,8 +270,22 @@ local function main(...)
                        state, load, #t, table.concat(idata, ",")),
          string.format("%s;%d;%d;%d;%d", table.concat(pdata, " "), warn, crit, 0, 100)
       }
+   elseif mode == "uptime" then
+      local state = "OK"
+      if verbosity > 0 then
+         printf("Uptime:")
+         printf("  %2d days", d.days)
+         printf("  %2d hours", d.hours)
+         printf("  %2d minutes", d.minutes)
+         printf("  %2d seconds", d.seconds)
+         printf("  %d ticks", d.ticks)
+      end
+      rdata = {
+         string.format("%s - Uptime is %d days %02d:%02d:%02d (%d)", state, d.days, d.hours,
+                       d.minutes, d.seconds, d.ticks),
+         string.format("uptime=%dd %dh %dm %ds", d.days, d.hours, d.minutes, d.seconds)
+      }
    end
-   
    printf("%s", table.concat(rdata, "|"))
 
    sess:close()
