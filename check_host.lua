@@ -13,7 +13,9 @@ local host_tabs = {
    disk = "hrStorage",
    mem = "hrStorage",
    load = "hrProcessorLoad",
-   uptime = "sysUpTime"
+   uptime = "sysUpTime",
+   otemp = "extOutput.2",
+   alltemp = "extTable"
 }
 
 local long_opts = {
@@ -54,10 +56,12 @@ local USAGE = {
 
 local DESCRIPTION = {
    "This Nagios plugin retrieves the following status and performance data for host computers:",
-   "  - mode=disk:   disk usage",
-   "  - mode=mem:    memory usage",
-   "  - mode=load:   processor load per core and average over all cores",
-   "  - mode=uptime: uptime of the host",
+   "  - mode=disk:    disk usage",
+   "  - mode=mem:     memory usage",
+   "  - mode=load:    processor load per core and average over all cores",
+   "  - mode=uptime:  uptime of the host",
+   "  - mode=otemp:   outside temperature sensor 1 DS18B20",
+   "  - mode=alltemp: all installed temperature sensors DS18B20",
    " ",
    "The disk to be monitored can be selected in one of the following ways:",
    "  1) direct adressing via index in SNMP table (option --index), --index=31",
@@ -67,7 +71,10 @@ local DESCRIPTION = {
    "The memory to be monitored is best selected with --descr='Physical Memory' or",
    "with --letter='Physical' (substring).",
    "Disk and memory are retrieved from SNMP hrStorage entries.",
-   "The processor load is retrieved from SNMP hrProcessorLoad entries."
+   "The processor load is retrieved from SNMP hrProcessorLoad entries.",
+   " ",
+   "Note: The DS18B20 temperature sensors use 1-wire interface serviced by software.",
+   "      This leads to long execution times."
 }
 
 local function printf(fmt, ...)
@@ -285,6 +292,37 @@ local function main(...)
                        d.minutes, d.seconds, d.ticks),
          string.format("uptime=%dd %dh %dm %ds", d.days, d.hours, d.minutes, d.seconds)
       }
+   elseif mode == "otemp" then
+      local state = "OK"
+      local temp = tonumber(d)
+      if verbosity > 0 then
+         printf("Temperature sensor outside:")
+         printf("%.2f °C", temp) 
+      end
+      rdata = {
+         string.format("%s - Temperature is %.2f C", state, temp),
+         string.format("Temp=%.2f", temp)
+      }
+   elseif mode == "alltemp" then
+      local state = "OK"
+      local t,p = {},{}
+      if verbosity > 0 then
+         printf("Temperature Sensors:")
+      end
+      for k = 2, 5 do
+         local temp = d["extOutput."..k]
+         if verbosity > 0 then
+            printf("sensor %d: %.2f C", k-1, tonumber(temp))
+         end
+         table.insert(p, string.format("%.2f", tonumber(temp)))
+         table.insert(t, string.format("%.2f C", tonumber(temp)))
+      end
+      
+      rdata = {
+         string.format("%s - Sensors show %s", state, table.concat(t, " ")),
+         string.format("Sensors=%s", table.concat(p, ","))
+      }
+
    end
    printf("%s", table.concat(rdata, "|"))
 
