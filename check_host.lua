@@ -14,6 +14,7 @@ local host_tabs = {
    mem = "hrStorage",
    load = "hrProcessorLoad",
    uptime = "sysUpTime",
+   itemp = "extOutput.3",
    otemp = "extOutput.2",
    alltemp = "extTable"
 }
@@ -61,6 +62,7 @@ local DESCRIPTION = {
    "  - mode=load:    processor load per core and average over all cores",
    "  - mode=uptime:  uptime of the host",
    "  - mode=otemp:   outside temperature sensor 1 DS18B20",
+   "  - mode=itemp:   inside temperature sensor 2 DS18B20",
    "  - mode=alltemp: all installed temperature sensors DS18B20",
    " ",
    "The disk to be monitored can be selected in one of the following ways:",
@@ -300,8 +302,19 @@ local function main(...)
          printf("%.2f °C", temp) 
       end
       rdata = {
-         string.format("%s - Temperature is %.2f C", state, temp),
-         string.format("Temp=%.2f", temp)
+         string.format("%s - Temperature Outside is %.2f C", state, temp),
+         string.format("TempOut=%.2f", temp)
+      }
+   elseif mode == "itemp" then
+      local state = "OK"
+      local temp = tonumber(d)
+      if verbosity > 0 then
+         printf("Temperature sensor inside:")
+         printf("%.2f °C", temp) 
+      end
+      rdata = {
+         string.format("%s - Temperature Inside is %.2f C", state, temp),
+         string.format("TempIn=%.2f", temp)
       }
    elseif mode == "alltemp" then
       local state = "OK"
