@@ -22,21 +22,27 @@ The Lua module [lua-http-digest](https://github.com/catwell/lua-http-digest "lua
 
 ## check_host.lua:
 ```
-This Nagios plugin retrieves the following status and performance
-data for host computers:
-   - mode=disk: disk usage
-   - mode=mem:  memory usage
-   - mode=load: processor load per core and average over all cores
+This Nagios plugin retrieves the following status and performance data for host computers:
+  - mode=disk:    disk usage
+  - mode=mem:     memory usage
+  - mode=load:    processor load per core and average over all cores
+  - mode=uptime:  uptime of the host
+  - mode=otemp:   outside temperature sensor 1 DS18B20
+  - mode=itemp:   inside temperature sensor 2 DS18B20
+  - mode=alltemp: all installed temperature sensors DS18B20
 
 The disk to be monitored can be selected in one of the following ways:
   1) direct adressing via index in SNMP table (option --index), --index=31
-  2) indirect addressing via description (option --descr), e.g. --descr="/"
-  3) indirect addressing using a substring (option --letter), e.g. --letter="C:"
+  2) indirect addressing via description (option --descr), e.g. --descr='/'
+  3) indirect addressing using a substring (option --letter), e.g. --letter='C:'
 
-The memory to be monitored is best selected with --descr="Physical Memory" or
-with --letter="Physical" (substring).
+The memory to be monitored is best selected with --descr='Physical Memory' or
+with --letter='Physical' (substring).
 Disk and memory are retrieved from SNMP hrStorage entries.
 The processor load is retrieved from SNMP hrProcessorLoad entries.
+
+Note: The DS18B20 temperature sensors use 1-wire interface serviced by software.
+      This leads to long execution times.
 
 usage: check_host -H hostname -C community OPTIONS
    -h,--help                    Get this help
@@ -50,6 +56,7 @@ usage: check_host -H hostname -C community OPTIONS
    -l,--letter=LETTER           Alternate storage description
    -i,--index                   Index in storage table
    -V,--version                 Show version info
+
 ```
 ## check_fritz.lua:
 ```
