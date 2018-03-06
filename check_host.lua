@@ -16,7 +16,15 @@ local host_tabs = {
    uptime = "sysUpTime",
    itemp = "extOutput.3",
    otemp = "extOutput.2",
-   alltemp = "extTable"
+   alltemp = "extTable",
+   humidity = "extOutput.2",
+   pressure = "extOutput.3",
+   gravity = "extOutput.4",
+   stemp = "extOutput.5",
+   comp = "extOutput.6",
+   magX = "extOutput.7",
+   magY = "extOutput.8",
+   magZ = "extOutput.9",
 }
 
 local long_opts = {
@@ -57,13 +65,19 @@ local USAGE = {
 
 local DESCRIPTION = {
    "This Nagios plugin retrieves the following status and performance data for host computers:",
-   "  - mode=disk:    disk usage",
-   "  - mode=mem:     memory usage",
-   "  - mode=load:    processor load per core and average over all cores",
-   "  - mode=uptime:  uptime of the host",
-   "  - mode=otemp:   outside temperature sensor 1 DS18B20",
-   "  - mode=itemp:   inside temperature sensor 2 DS18B20",
-   "  - mode=alltemp: all installed temperature sensors DS18B20",
+   "  - mode=disk:      disk usage",
+   "  - mode=mem:       memory usage",
+   "  - mode=load:      processor load per core and average over all cores",
+   "  - mode=uptime:    uptime of the host",
+   "  - mode=otemp:     outside temperature sensor 1 DS18B20",
+   "  - mode=itemp:     inside temperature sensor 2 DS18B20",
+   "  - mode=alltemp:   all installed temperature sensors DS18B20",
+   "  - mode=humidity:  relative humidity from sensehat",
+   "  - mode=pressure:  pressure from sensehat",
+   "  - mode=gravity:   gravity constant from sensehat IMU",
+   "  - mode=stemp:     temperature from sensehat",
+   "  - mode=comp:      compass in deg from sensehat IMU",
+   "  - mode=magX/Y/Z: magnetometer from sensehat IMU",
    " ",
    "The disk to be monitored can be selected in one of the following ways:",
    "  1) direct adressing via index in SNMP table (option --index), --index=31",
@@ -75,8 +89,10 @@ local DESCRIPTION = {
    "Disk and memory are retrieved from SNMP hrStorage entries.",
    "The processor load is retrieved from SNMP hrProcessorLoad entries.",
    " ",
-   "Note: The DS18B20 temperature sensors use 1-wire interface serviced by software.",
-   "      This leads to long execution times."
+   "Notes: ",
+   "(1) The script does not check whether the host is actually equipped with the correct sensor!",
+   "(2) The DS18B20 temperature sensors use 1-wire interface serviced by software.",
+   "    This leads to long execution times."
 }
 
 local function printf(fmt, ...)
@@ -335,7 +351,73 @@ local function main(...)
          string.format("%s - Sensors show %s", state, table.concat(t, " ")),
          string.format("Sensors=%s", table.concat(p, ","))
       }
-
+   elseif mode == "humidity" then
+      local state = "OK"
+      local h = tonumber(d)
+      if verbosity > 0 then
+         printf("Humidity from Sense Hat:")
+         printf("%.1f %%", h)
+      end
+      rdata = {
+         string.format("%s - Humidity is %.1f %%", state, h),
+         string.format("Humidity=%.1f %%", h)
+      }
+   elseif mode == "pressure" then
+      local state = "OK"
+      local p = tonumber(d)
+      if verbosity > 0 then
+         printf("Pressure from Sense Hat:")
+         printf("%.1f mbar", p)
+      end
+      rdata = {
+         string.format("%s - Pressure is %.1f mbar", state, p),
+         string.format("Pressure=%.1f mbar", p)
+      }
+   elseif mode == "gravity" then
+      local state = "OK"
+      local g = tonumber(d)
+      if verbosity > 0 then
+         printf("Gravity from Sense Hat:")
+         printf("%.5f G", g)
+      end
+      rdata = {
+         string.format("%s - Gravity is %.5f G", state, g),
+         string.format("Gravity=%.5f G", g)
+      }
+   elseif mode == "stemp" then
+      local state = "OK"
+      local temp = tonumber(d)
+      if verbosity > 0 then
+         printf("Temperature from Sense Hat:")
+         printf("%.2f °C", temp)
+      end
+      rdata = {
+         string.format("%s - Temperature is %.2f °C", state, temp),
+         string.format("TempS=%.2f °C", temp)
+      }
+   elseif mode == "comp" then
+      local state = "OK"
+      local comp = tonumber(d)
+      if verbosity > 0 then
+         printf("Compass from Sense Hat:")
+         printf("%.1f deg", comp)
+      end
+      rdata = {
+         string.format("%s - Compass shows %.1f deg", state, comp),
+         string.format("Compass=%.2f deg", comp)
+      }
+   elseif mode == "magX" or mode == "magY" or mode == "magZ" then
+      local state = "OK"
+      local mag = tonumber(d)
+      local s = string.sub(mode, -1)
+      if verbosity > 0 then
+         printf("Magnetometer %q from Sense Hat:", s)
+         printf("%.2f uTesla", mag)
+      end
+      rdata = {
+         string.format("%s - Magnetometer %s is %.2f uT", state, s, mag),
+         string.format("Mag%s=%.2f uT", s, mag)
+      }
    end
    printf("%s", table.concat(rdata, "|"))
 
