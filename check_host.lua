@@ -224,6 +224,9 @@ local function main(...)
       local descr = d["hrStorageDescr."..index]
       local used = d["hrStorageUsed."..index]
       local bsize = d["hrStorageAllocationUnits."..index]
+      if size == nil then
+         exitError("Selcted storage entry not available.")
+      end	
       local nusage = used/size
       local nsize = size * bsize
       local nused = used * bsize
@@ -245,14 +248,14 @@ local function main(...)
          printf("Storage index: %d", index)
          printf("Storage descr: %s", descr)
          printf("Storage type:  %s", d["hrStorageType."..index])
-         printf("Storage size:  %d MBytes", nsize/mb)
-         printf("Storage used:  %d MBytes", nused/mb)
+         printf("Storage size:  %.1f MBytes", nsize/mb)
+         printf("Storage used:  %.1f MBytes", nused/mb)
          printf("Storage unit:  %d Bytes", bsize)
          
       end
       
       rdata = {
-         string.format("%s - %s at %.1f %% with %d MB of %d MB free",
+         string.format("%s - %s at %.1f %% with %.1f MB of %.1f MB free",
                        state, descr, usage, (nsize-nused)/mb, nsize/mb),
          string.format("size=%d free=%d usage=%.1f%%;%d;%d;%d;%d",
                        nsize, nsize - nused, usage, warnp, critp, 0, 100)
@@ -426,4 +429,4 @@ local function main(...)
    return retval[state]
 end
 
-return main(unpack(arg))
+return main(table.unpack(arg))
