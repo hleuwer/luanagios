@@ -283,7 +283,7 @@ local function tr64_time(url)
    local res = tr64_call(url, services.time, nil, nil)
    local date, time, offs
    local t, o = {},{}
-   string.gsub(res.NewCurrentLocalTime, "([0-9%-]+)T([^%+]+)%+([0-9%:]+)",
+   string.gsub(res.NewCurrentLocalTime, "([0-9%-]+)T([^%+]+)%+*([0-9%:]*)",
                function(d, t, o)
                   date = d
                   time = t
