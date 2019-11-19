@@ -407,7 +407,7 @@ local checks = {
       }
       local rdata = {
          format("%s - Uptime %d seconds (%dd %dh %dm %ds)",
-                state, seconds, t.days, t.hours, t.minutes, t.seconds),
+                state or "OK", seconds, t.days, t.hours, t.minutes, t.seconds),
          format("uptime=%d",seconds)
       }
       return rdata, vout
@@ -430,7 +430,7 @@ local checks = {
       }
       local rdata = {
          format("%s - WAN uptime %d seconds (%dd %dh %dm %ds)",
-                state, seconds, t.days, t.hours, t.minutes, t.seconds),
+                state or "OK", seconds, t.days, t.hours, t.minutes, t.seconds),
          format("wanuptime=%d",seconds)
       }
       return rdata, vout
@@ -448,7 +448,7 @@ local checks = {
          format("WAN Link Uptime:   %2d seconds", tonumber(res.NewUptime))
       }
       local rdata ={
-         format("%s - WAN status %d (%s)", state, nstatus, res.NewConnectionStatus),
+         format("%s - WAN status %d (%s)", state or "OK", nstatus, res.NewConnectionStatus),
          format("wanstatus=%d", nstatus)
       }
       return rdata, vout
@@ -486,7 +486,7 @@ local checks = {
       }
       local rdata = {
          format("%s - RX: %d Bytes (%.1f bit/s), TX: %d Bytes (%.1f bit/s)",
-                state, rxb, rxrate, txb, txrate),
+                state or "OK", rxb, rxrate, txb, txrate),
          format("rxrate=%dbit/s txrate=%dbit/s;%d;%d;%d;%d",
                 rxrate, txrate, 0, 0, 0, 0)
       }
@@ -525,7 +525,7 @@ local checks = {
       }
       local rdata = {
          format("%s - RX: %d Bytes (%.1f bit/s), TX: %d Bytes (%.1f bit/s)",
-                state, rxb, rxrate, txb, txrate),
+                state or "OK", rxb, rxrate, txb, txrate),
          format("rxrate=%dbit/s txrate=%dbit/s;%d;%d;%d;%d", rxrate, txrate, 0, 0, 0, 0)
       }
       return rdata, vout
@@ -550,7 +550,7 @@ local checks = {
       }
       
       local rdata = {
-         format("%s - %s", state, retstr),
+         format("%s - %s", state or "OK", retstr),
          format("enable=%d status=%s", res.NewEnable, res.Newstatus) 
       }
       return rdata, vout
@@ -588,7 +588,7 @@ local checks = {
       }
       local rdata = {
          format("%s - RX: %d packets (%.1f packets/s), TX: %d packets (%.1f packets/s)",
-                state, rxp, rxrate, txp, txrate),
+                state or "OK", rxp, rxrate, txp, txrate),
          format("rxrate=%dpackets/s txrate=%dpackets/s;%d;%d;%d;%d",
                 rxrate, txrate, 0, 0, 0, 0)
       }
@@ -609,7 +609,7 @@ local checks = {
          format("NTP Server 2:  %s", res.NewNTPServer2)
       }
       local rdata = {
-         format("%s - Local time is %s", state, retstr),
+         format("%s - Local time is %s", state or "OK", retstr),
          format("time=%s reftime=%s", tim, os.time())
       }
       return rdata, vout
@@ -650,7 +650,7 @@ local checks = {
       end
       local rdata = {}
       if cfg.special == "auth-only" then
-         tinsert(rdata, format("%s - %d devices authenticated", state, ndev))
+         tinsert(rdata, format("%s - %d devices authenticated", state or "OK", ndev))
          tinsert(rdata, format("ndev=%d", ndev))
       else
          tinsert(rdata, format("%s - %d devices kown", state, ndev))
