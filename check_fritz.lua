@@ -170,6 +170,7 @@ local DESCRIPTION = {
    "   - mode=wanstatus:   Current WAN status",
    "   - mode=wanuptime:   Time since last WAN link break and IP address assignment",
    "   - mode=wanstats:    Downstream and upstream statistics (data rate in Mbit/s)",
+   "   - mode=wanpppip:    WAN IP address",
    "   - mode=wlanchannel: Configured and possible channels",
    "   - mode=wlandevs:    WLAN connected device info",
    "   - mode=wlanstats    Downstream and upstream packet statistics (data rate in packets/s)",
@@ -453,6 +454,18 @@ local checks = {
       }
       return rdata, vout
    end,
+
+   check_wanpppip = function(cfg)
+      local nstatus, res = tr64_wanstatus(cfg.url)
+      local vout = {
+         format("WAN PPP IP Address: %s", res.NewExternalIPAddress)
+      }
+      local rdata = {
+         format("%s - WAN PPP ip %s", state or "OK", res.NewExternalIPAddress),
+         format("wanpppip=%s", res.NewExternalIPAddress)
+      }
+      return rdata, vout
+   end,
    
    check_wanstats = function(cfg)
       local txb, rxb, txt, rxt = tr64_wanstats(cfg.url)
@@ -715,7 +728,9 @@ local function main(...)
          cfg.logfilename = v
       end
    end
-
+   if cfg.password == nil then
+     cfg.password = io.open(os.getenv("HOME").."/.check_fritz_rc"):read()
+   end	
    cfg.url = "http://" .. cfg.user .. ":" .. cfg.password .. "@" .. cfg.host .. ":" .. cfg.port
    cfg.logfile = io.open(cfg.logfilename,  "a+")
    
