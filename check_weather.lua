@@ -160,6 +160,10 @@ local DESCRIPTION = {
    "  - forecast=hourly hourly forecast for 24 hours",
    "  - forecast=daily  daily forecast for 7 days",
    " ",
+   "  Forcast samples",
+   "  - sample=1..7     daily forecast sample day 1 to 7",
+   "  - sample=1..24    hourly forecast sample hour 1 to 24",
+   " ",
    "Notes: ",
    "(1) The call frequency is limited depending on the underlying",
    "    contract with openweathermap.org."
@@ -183,7 +187,7 @@ end
 
 local function dprintf(fmt, ...)
    if debug == true then
-      io.stderr:write(format(fmt.."\n", ...))
+      io.stderr:write(">> " .. format(fmt.."\n", ...))
    end
 end
 
@@ -202,7 +206,7 @@ end
 -- @param fmt Format for error message to output to stderr.
 -- @return Never returns.
 local function exitError(fmt, ...)
-   fprintf("UKNOWN - check_host returned with error "..fmt, ...)
+   fprintf("UKNOWN - check_host returned with error: "..fmt, ...)
    os.exit(retval["UNKNOWN"], true)
 end
 
@@ -336,7 +340,7 @@ local function main(...)
       end
    else
       local url, err = mkUrl(mode, loc, lang, units, nil, appid)
-      dprintf("#1#", url, err)
+      dprintf(url, err)
       if not url then
 	 state = "UNKNOWN"
 	 if verbosity > 0 then
@@ -408,19 +412,27 @@ local function main(...)
 	 if out == "wind" or out == "all" then
 	    tinsert(rdata, format("wind=%.1f %s at %d deg", t.wind.speed, gU("wind", units), t.wind.deg))
 	 end
-      elseif mode == "forecast" then
-	 if fctype == "daily" and (sample < 2 or sample > 8) then
-	    exitError("invalid sample %d for daily forecast", sample - 1)
+
+      elseif mode == "forecast" or mode == "history" then
+	 if mode == "forecast" then
+	    if fctype == "daily" and (sample < 2 or sample > 8) and mode == "forecast" then
+	       exitError("invalid sample %d for daily forecast", sample - 1)
+	    end
+	 else
+	    fctype = "hourly"
+	    if (sample < 2 or sample > 19) then
+	       exitError("invalid sample %d for hourly history", sample - 1)
+	    end
 	 end
 	 if fctype == "hourly" and (sample < 2 or sample > 25) then
-	    exitError("invalid sample %d for hourly forecast", sample - 1)
+	    exitError("invalid sample %d for hourly %s", sample - 1, mode)
 	 end
 	 if verbosity > 0 then
 	    printf("Coordinates of %q", loc)
 	    printf("  lattitude: %.2f", t.lat)
 	    printf("  longitude: %.2f", t.lon)
 	    if fctype == "hourly" then
-	       printf("Hourly forecast")
+	       printf("Hourly %s", mode)
 	       for k, u in ipairs(t.hourly) do
 		  if k > 1 then
 		     printf("  %s: temperature: %.1f feels like: %.1f wind: %.1f %s at %d deg %s",
@@ -429,7 +441,7 @@ local function main(...)
 			    u.weather[1].description)
 		  end
 	       end
-	    elseif fctype == "daily" then
+	    elseif fctype == "daily" and mode == "forecast" then
 	       printf("Daily forecast")
 	       for k, u in ipairs(t.daily) do
 		  if k > 1 then
@@ -444,23 +456,22 @@ local function main(...)
 	    end
 	 end
 	 if fctype == "daily" then
+	    if mode == "forecast" then
+	       rdata = {
+		  format("%s - Weather %s %s in %s: %s",
+			 state, fctype, mode, loc, t.daily[sample].weather[1].description)
+	       }
+	       tinsert(rdata, format("temp=%.1f %s", t.daily[sample].temp.day, gU("temp", units)))
+	       tinsert(rdata, format("date=%s", os.date("%d.%m.%Y", t.daily[sample].dt)))
+	    end
+	 else
 	    rdata = {
-	       format("%s - Weather forecast in %s: %s",
-		      state, loc, t.daily[sample].weather[1].description)
-	    }
-	    tinsert(rdata, format("temp=%.1f %s", t.daily[sample].temp.day, gU("temp", units)))
-	    tinsert(rdata, format("date=%s", os.date("%d.%m.%Y", t.daily[sample].dt)))
-	 elseif fctype == "hourly" then
-	    rdata = {
-	       format("%s - Weather forecast in %s: %s",
-		      state, loc, t.hourly[sample].weather[1].description)
+	       format("%s - Weather %s %s in %s: %s",
+		      state, fctype, mode, loc, t.hourly[sample].weather[1].description)
 	    }
 	    tinsert(rdata, format("temp=%.1f %s", t.hourly[sample].temp, gU("temp", units)))
 	    tinsert(rdata, format("date=%s", os.date("%d.%m.%Y %H:%M", t.hourly[sample].dt)))
 	 end
-	    
-      elseif mode == "history" then
-	 
       end
    end
    printf("%s", table.concat(rdata, "|"))
