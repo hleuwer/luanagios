@@ -134,6 +134,10 @@ local function getIndex(entries, descr, letter, mode)
    return index
 end
 
+local function date(secs)
+   return os.date("%A %d.%B %Y %H:%M:%S", secs)
+end
+
 local function main(...)
 
    local host = "localhost"
