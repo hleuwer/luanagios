@@ -13,7 +13,6 @@ local tinsert, format = table.insert, string.format
 
 local VERSION = "1.0"
 
-local APPID = "c3454c3a68e2abd6d7e86471b429686e"
 local URL = "http://api.openweathermap.org/data/2.5/"
 
 local debug = os.getenv("debug") == "yes"
@@ -22,11 +21,10 @@ local debug = os.getenv("debug") == "yes"
 -- Get GEO location as latitude, longitude from given location name.
 -- @param location Name of location.
 -- @return Table with geo location la=LATTITUDE, lo=LONGITUDE.
-local function get_geo_location(location)
+local function get_geo_location(location, appid)
    local t = {}
-   -- http://api.openweathermap.org/data/2.5/weather?q=London,uk&APPID=c3454c3a68e2abd6d7e86471b429686e
    local url = string.format("%sweather?q=%s&APPID=%s",
-			     URL, location, APPID)
+			     URL, location, appid)
    b, c, h = http.request(url)
    if b == nil then
       return nil, "http request failure"
@@ -65,7 +63,7 @@ local function mkUrl(mode, location, language, units, exclude, appid)
 
    local param = {}
    if type(location) == "string" then
-      location, err = get_geo_location(location)
+      location, err = get_geo_location(location, appid)
       if not location then
 	 return nil, err
       end
@@ -85,7 +83,7 @@ local function mkUrl(mode, location, language, units, exclude, appid)
 	 tinsert(param, format("exclude=%s", exclude))
       end
    end
-   tinsert(param, format("appid=%s", appid or APPID))
+   tinsert(param, format("appid=%s", appid))
    
    url = url .. table.concat(param, "&")
 
@@ -271,7 +269,7 @@ local function main(...)
    local out = "all"
    local fctype = "daily"
    local sample = 2
-   local appid = APPID
+   local appid = nil
    local rdata
    local res
 
@@ -317,7 +315,6 @@ local function main(...)
 	 appid = v
       end
    end
-
    -- We set the locale according to language
    os.setlocale(locales[lang])
 
@@ -378,7 +375,6 @@ local function main(...)
 	    printf("  sunrise    : %s", time(t.sys.sunrise))
 	    printf("  sunset     : %s", time(t.sys.sunset))
 	 end
-	 dprintf("#1#", t.weather[1].description)
 	 if out == "all" then
 	    rdata = {
 	       format("%s - Weather in %s: %s, temperature %.1f %s",
