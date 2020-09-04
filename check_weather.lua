@@ -381,10 +381,27 @@ local function main(...)
 		      state, t.name, t.weather[1].description, t.main.temp, gU("temp", units)),
 	    }
 	 else
-	    rdata = {
-	       format("%s - Weather in %s: %s, temperature %.1f %s",
-		      state, t.name, t.weather[1].description, t.main.temp, gU("temp", units)),
-	    }
+	    if out == "geo" then
+	       rdata = {format("%s - Weather in %s: %s, lattitude %.2f longitude %.2f",
+			       state, t.name, t.weather[1].description, t.coord.lat, t.coord.lon)}
+	    elseif out == "temp" then
+	       rdata = {format("%s - Weather in %s: %s, temperature %.1f %s",
+			       state, t.name, t.weather[1].description, t.main.temp, gU("temp", units))}
+	    elseif out == "feels" then
+	       rdata = {format("%s - Weather in %s: %s, feels like %.1f %s",
+			       state, t.name, t.weather[1].description, t.main.feels_like, gU("temp", units))}
+	    elseif out == "pressure" then
+	       rdata = {format("%s - Weather in %s: %s, pressure %d hPa",
+			       state, t.name, t.weather[1].description, t.main.pressure)}
+	    elseif out == "humidity" then
+	       rdata = {format("%s - Weather in %s: %s, humidity %d %%",
+			       state, t.name, t.weather[1].description, t.main.humidity)}
+	    elseif out == "wind" then
+	       rdata = {format("%s - Weather in %s: %s, wind %.1f %s at %d deg",
+			       state, t.name, t.weather[1].description, t.wind.speed, gU("wind", units), t.wind.deg)}
+	    else
+	       exitError("invalid output selection  %q", out)
+	    end
 	 end
 	 
 	 if out == "geo" or out == "all" then
