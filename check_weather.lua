@@ -107,7 +107,8 @@ local long_opts = {
    geo = "g",
    units = "u",
    lang = "L",
-   mode = "m"
+   mode = "m",
+   table = "t"
 }
 
 local retval = {
@@ -132,7 +133,8 @@ local USAGE = {
    "   -L, --lang=LANG               de=german, en=ENGLISH (default)",
    "   -P, --password=APPID          App Id for the openweathermaps.org API",
    "   -h, --help                    Get this help",
-   "   -V, --version                 Show version info"
+   "   -V, --version                 Show version info",
+   "   -t, --table                   Show as Lua table",
 }
 
 local DESCRIPTION = {
@@ -272,8 +274,9 @@ local function main(...)
    local appid = nil
    local rdata
    local res
+   local tabout = false
 
-   optarg,optind = alt_getopt.get_opts (arg, "hVvm:w:c:l:L:P:g:o:f:s:u:", long_opts)
+   optarg,optind = alt_getopt.get_opts (arg, "hVvm:w:c:l:L:P:g:o:f:s:u:t", long_opts)
 
    for k,v in pairs(optarg) do
       if k == "m" then
@@ -313,6 +316,8 @@ local function main(...)
 	 units = v
       elseif k == "P" then
 	 appid = v
+      elseif k == "t" then
+	 tabout = true
       end
    end
    -- We set the locale according to language
@@ -354,6 +359,10 @@ local function main(...)
 	 return nil, c
       end
       local t = json.decode(b)
+      if tabout == true then
+	 printf("return " .. pretty.write(t))
+	 return 0
+      end
       dprintf(pretty.write(t))
       --
       -- current
