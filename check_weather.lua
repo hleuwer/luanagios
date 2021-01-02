@@ -108,6 +108,8 @@ local long_opts = {
    units = "u",
    lang = "L",
    mode = "m",
+   json = "j",
+   url = "U",
    table = "t"
 }
 
@@ -125,6 +127,8 @@ local USAGE = {
    "   -m, --mode=MODE               Mode: current, forecast, history or location",
    "   -o, --out=OUTP                Output: all, coord, temp, ...",
    "   -f, --forecast=FORECAST       Forecast type: hourly, daily",
+   "   -j, --json                    Print JSON response",
+   "   -U, --url                     Print request URL",
    "   -s, --asmple=SAMPLE           Sample in forecast or history list: 1 to N",
    "   -v, --verbose                 Verbose (detailed) output",
    "   -w, --warn=WARNTHRESHOLD      Warning threshold for defined OUTP",
@@ -275,8 +279,10 @@ local function main(...)
    local rdata
    local res
    local tabout = false
+   local printjson = false
+   local printurl = false
 
-   optarg,optind = alt_getopt.get_opts (arg, "hVvm:w:c:l:L:P:g:o:f:s:u:t", long_opts)
+   optarg,optind = alt_getopt.get_opts (arg, "hVvm:w:c:l:L:P:g:o:f:s:u:tjU", long_opts)
 
    for k,v in pairs(optarg) do
       if k == "m" then
@@ -318,6 +324,10 @@ local function main(...)
 	 appid = v
       elseif k == "t" then
 	 tabout = true
+      elseif k == "j" then
+	 printjson = true
+      elseif k == "U" then
+	 printurl = true
       end
    end
    -- We set the locale according to language
@@ -354,11 +364,19 @@ local function main(...)
 	 printf("%s - %s", state, err)
 	 return retval[state]
       end
+      if printurl == true then
+	 printf("%s", url)
+	 return 0
+      end
       local b, c, h = http.request(url)
       if b == nil then
 	 return nil, c
       end
       local t = json.decode(b)
+      if printjson == true then
+	 printf("%s", b)
+	 return 0
+      end
       if tabout == true then
 	 printf("return " .. pretty.write(t))
 	 return 0
