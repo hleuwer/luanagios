@@ -7,7 +7,9 @@
 local getopt = require "alt_getopt"
 local pretty = require "pl.pretty"
 local http = require "socket.http"
-local json = require "dkjson"
+--local json = require "dkjson"
+local json = require "cjson"
+require "datadumper"
 
 local tinsert, format = table.insert, string.format
 
@@ -16,6 +18,15 @@ local VERSION = "1.0"
 local URL = "http://api.openweathermap.org/data/2.5/"
 
 local debug = os.getenv("debug") == "yes"
+
+---
+-- Helper print to STDERR.
+-- @param fmt format string
+-- @param ... print arguments.
+local function eprintf(fmt, ...)
+   io.stderr:write(format(fmt, ...))
+   io.stderr:flush()
+end
 
 ---
 -- Get GEO location as latitude, longitude from given location name.
@@ -29,9 +40,10 @@ local function get_geo_location(location, appid)
    if b == nil then
       return nil, "http request failure"
    else
-      t = json.decode(b)
       if c ~= 200 then
 	 return nil, t.message
+      else
+      t = json.decode(b)
       end
    end
    return t.coord
@@ -254,9 +266,12 @@ local function time(secs)
    return os.date("%H:%M:%S", secs)
 end
 local locales = {
-   de = "de_DE.UTF-8",
+   de = "de_DE.UTF-16",
+--   de = "de_DE",
+--   de = "de_DE",
+--   de = "de_DE.ISO8859-1",
 --   de = "de_DE.ISO8859-15",
-   en = "en_EN.UTF-8"
+   en = "en_EN.UTF-16"
 }
 ---
 -- Main function.
@@ -332,6 +347,7 @@ local function main(...)
    end
    -- We set the locale according to language
    os.setlocale(locales[lang])
+--   os.setlocale(locales["en"], "numeric")
 
    if mode == "coord" then
       local t, err, h = get_geo_location(loc)
@@ -365,6 +381,7 @@ local function main(...)
 	 return retval[state]
       end
       if printurl == true then
+	 eprintf("Url:\n")
 	 printf("%s", url)
 	 return 0
       end
@@ -374,11 +391,15 @@ local function main(...)
       end
       local t = json.decode(b)
       if printjson == true then
+	 eprintf("Json:\n")
 	 printf("%s", b)
 	 return 0
       end
       if tabout == true then
-	 printf("return " .. pretty.write(t))
+	 eprintf("Json:\n")
+	 printf("%s", b)
+	 eprintf("Lua:\n")
+	 printf("%s", DataDumper(t, nil, true, 0))
 	 return 0
       end
       dprintf(pretty.write(t))
