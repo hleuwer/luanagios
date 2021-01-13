@@ -9,7 +9,7 @@ local pretty = require "pl.pretty"
 local http = require "socket.http"
 --local json = require "dkjson"
 local json = require "cjson"
-require "datadumper"
+require "DataDumper"
 
 local tinsert, format = table.insert, string.format
 
