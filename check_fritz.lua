@@ -9,6 +9,11 @@ local VERSION = "1.0"
 
 local format, tinsert = string.format, table.insert
 
+local command = ""
+-- Commands
+local commandlist = {
+   "async", "showurl"
+}
 -- Services database
 
 local services = {
@@ -136,7 +141,8 @@ local long_opts = {
    user = 'u',
    password = 'P',
    special = 's',
-   logfile = 'L'
+   logfile = 'L',
+   command = 'C'
 }
 
 local retval = {
@@ -159,7 +165,8 @@ local USAGE = {
    "   -v,--verbose                 Verbose (detailed) output",
    "   -h,--help                    Get this help",
    "   -V,--version                 Show version info",
-   "   -s,--special=SPECIAL         Mode specific control"
+   "   -s,--special=SPECIAL         Mode specific control",
+   "   -C,--command=COMMAND         Special command"
 }
 
 local DESCRIPTION = {
@@ -176,7 +183,13 @@ local DESCRIPTION = {
    "   - mode=wlanstats    Downstream and upstream packet statistics (data rate in packets/s)",
    "   - mode=lanstats:    LAN statistics",
    "   - mode=time:        Local time in device",
-   "   - mode=ssid:        WLAN SSID and status"
+   "   - mode=ssid:        WLAN SSID and status",
+   " ",
+   "There are some special commands for debug and test purposes:",
+   "   - async     Asynchronous request using copas",
+   "   - showreq   Show the request parameters",
+   " "
+   
 }
 
 local function printf(fmt, ...)
@@ -254,8 +267,24 @@ local function tr64_call(url, service, action, param)
          param
       }
    }
---   printf("soap parameters: %s", pretty.write(soap_param))
+   if string.find(command, "async") then
+      soap_param.handler = false
+   end
+   if string.find(command, "showurl") then
+      printf("soap parameters: %s", pretty.write(soap_param))
+   end
    local rnamespace, rmeth, rval = client.call(soap_param)
+   if soap_param.handler == false then
+      local copas = require "copas"
+      io.stdout:write("Stepping ")
+      io.stdout:flush()
+      repeat
+	 io.stdout:write(".")
+	 io.stdout:flush()
+	 copas.step()
+      until copas.finished() == true
+      io.stdout:write(" done\n")
+   end
    if rnamespace == nil then
       exitError(rmeth)
    end
@@ -726,6 +755,8 @@ local function main(...)
          cfg.special = v
       elseif k == "L" then
          cfg.logfilename = v
+      elseif k == "C" then
+	 command = v
       end
    end
    if cfg.password == nil then
