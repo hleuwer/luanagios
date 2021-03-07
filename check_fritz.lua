@@ -125,7 +125,13 @@ local services = {
       service = "Layer3Forwarding",
       action = "GetDefaultConnectionService",
       namespace = "urn:dslforum-org:service"
-   }
+   },
+   contact = {
+      url = "/upnp/control/x_contact",
+      service = "X_AVM-DE_OnTel",
+      action = "GetCallList",
+      namespace = "urn:dslforum-org:service"
+   },
 }
 
 
@@ -184,6 +190,7 @@ local DESCRIPTION = {
    "   - mode=lanstats:    LAN statistics",
    "   - mode=time:        Local time in device",
    "   - mode=ssid:        WLAN SSID and status",
+   "   - mode=calls        Call list",
    " ",
    "There are some special commands for debug and test purposes:",
    "   - async     Asynchronous request using copas",
@@ -423,6 +430,19 @@ local function tr64_lanstats(url)
    local txbytes = tonumber(res.NewBytesSent)
    local rxbytes = tonumber(res.NewBytesReceived)
    return txbytes, rxbytes, xtime
+end
+
+local http = require "socket.http"
+local lxp = require "lxp.lom"
+
+local function tr64_calls(url)
+   -- retrive the call list
+   local res = tr64_call(url, services.contact, nil, nil)
+   local url = res.NewCallListURL
+      -- read the call list xml file
+   local b, c, h = http.request(url)
+   local t = lxp.parse(b)
+   return t
 end
 
 local checks = {
@@ -699,6 +719,59 @@ local checks = {
          tinsert(rdata, format("ndev=%d", ndev))
       end
       return rdata, vout
+   end,
+   
+   check_calls = function(cfg)
+      local function adj(s)
+	 return s .. string.rep(" ", 25-#s)
+      end
+      local rdata = {}
+      local vout = {
+	 format("Phone call list:")
+      }
+      tinsert(vout, format("Type %-14s\t%-24s\t%5s\t%-16s",
+			   "Date", adj("Name or Number"), "Time", "Device"))
+      tinsert(vout, string.rep("-",80))
+      local t = tr64_calls(cfg.url, cfg.special)
+      local r = {}
+      for i, v in ipairs(t) do
+	 if type(v) == "table" then
+	    if v.tag == "Call" then
+	       local e = {}
+	       for j, w in ipairs(v) do
+		  if type(w) == "table" then
+		     e[w.tag] = w[1]
+		  end
+	       end
+	       tinsert(r, e)
+	    elseif v.tag == "timestamp" then
+	       r.timestamp = v[1]
+	       r.date = os.date(nil, tonumber(v[1]))
+	    end
+	 end
+      end
+      local n_in, n_out, n_none = 0, 0, 0
+      for _, e in ipairs(r) do
+	 if e.Type == "1" then
+	    -- incoming
+	    tinsert(vout, format("IN   %14s\t%-24s\t%5s\t%-16s",
+				 e.Date, adj(e.Name or e.Caller), e.Duration, e.Device))
+	    n_in = n_in + 1
+	 elseif e.Type == "3" then
+	    -- outgoing
+	    tinsert(vout, format("OUT  %14s\t%-24s\t%5s\t%-16s",
+				 e.Date, adj(e.Name or e.Called), e.Duration, e.Device))
+	    n_out = n_out + 1
+	 elseif e.Type == "2" then
+	    -- absent
+	    tinsert(vout, format("NONE %14s\t%-24s\t%5s\t%-16s",
+				 e.Date, adj(e.Name or e.Caller), e.Duration, e.Device or "-"))
+	    n_none = n_none + 1
+	 end
+      end
+      tinsert(rdata, format("%s - %d/%d/%d in/out/none call entries found", state or "OK", n_in, n_out, n_none, #r))
+      tinsert(rdata, format("in=%d out=%d none=%d n=%d", n_in, n_out, n_none, #r))
+      return rdata, vout
    end
 }
 
@@ -768,7 +841,11 @@ local function main(...)
    local rdata, vout
 
    if cfg.mode ~= nil then
-      rdata, vout = checks["check_"..cfg.mode](cfg)
+      if checks["check_"..cfg.mode] ~= nil then
+	 rdata, vout = checks["check_"..cfg.mode](cfg)
+      else
+	 exitError("unknown mode %q", cfg.mode)
+      end
    else
       exitError("unkown mode %q", cfg.mode)
    end
