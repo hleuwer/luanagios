@@ -1,4 +1,6 @@
 #!/usr/bin/env lua
+package.path = "/Users/leuwer/git/luasoap.git/?.lua;/Users/leuwer/git/luasoap.git/?/?.lua;"..package.path
+print(package.path)
 local pretty = require "pl.pretty"
 local getopt = require "alt_getopt"
 local client = require "soap.client"
@@ -274,24 +276,35 @@ local function tr64_call(url, service, action, param)
          param
       }
    }
+   local rnamespace, rmeth, rval, soap_headers, body, opaque
+   
    if string.find(command, "async") then
-      soap_param.handler = false
+      soap_param.handler = function(_ns, _meth, _rval, _soap_headers, _body, _opaque)
+	 rnamespace, rmeth, rval, soap_headers, body, opaque =
+	    _ns, _meth, _rval, _soap_headers, _body, _opaque
+      end
+      soap_param.opaque = "check-fritz"
    end
    if string.find(command, "showurl") then
       printf("soap parameters: %s", pretty.write(soap_param))
    end
-   local rnamespace, rmeth, rval = client.call(soap_param)
-   if soap_param.handler == false then
-      local copas = require "copas"
-      io.stdout:write("Stepping ")
-      io.stdout:flush()
-      repeat
-	 io.stdout:write(".")
+   if string.find(command, "async") then
+      client.call(soap_param)
+      if type(soap_param.handler) == "function" then
+	 local copas = require "copas"
+	 io.stdout:write("Stepping ")
 	 io.stdout:flush()
-	 copas.step()
-      until copas.finished() == true
-      io.stdout:write(" done\n")
+	 repeat
+	    io.stdout:write(".")
+	    io.stdout:flush()
+	    copas.step()
+	 until copas.finished() == true
+	 io.stdout:write(" done\n")
+      end
+   else
+      rnamespace, rmeth, rval, soap_headers, body = client.call(soap_param)
    end
+--   print("RESULT: ", rnamespace, rmeth, pretty.write(rval,""), pretty.write(_soap_headers, ""), _body, _opaque)
    if rnamespace == nil then
       exitError(rmeth)
    end
