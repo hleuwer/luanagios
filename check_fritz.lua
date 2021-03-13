@@ -1,6 +1,6 @@
 #!/usr/bin/env lua
-package.path = "/Users/leuwer/git/luasoap.git/?.lua;/Users/leuwer/git/luasoap.git/?/?.lua;"..package.path
-print(package.path)
+--package.path = "/Users/leuwer/git/luasoap.git/?.lua;/Users/leuwer/git/luasoap.git/?/?.lua;"..package.path
+--print(package.path)
 local pretty = require "pl.pretty"
 local getopt = require "alt_getopt"
 local client = require "soap.client"
@@ -12,6 +12,8 @@ local VERSION = "1.0"
 local format, tinsert = string.format, table.insert
 
 local command = ""
+local showurl = false
+
 -- Commands
 local commandlist = {
    "async", "showurl"
@@ -150,7 +152,8 @@ local long_opts = {
    password = 'P',
    special = 's',
    logfile = 'L',
-   command = 'C'
+   command = 'C',
+   url = "U"
 }
 
 local retval = {
@@ -174,7 +177,8 @@ local USAGE = {
    "   -h,--help                    Get this help",
    "   -V,--version                 Show version info",
    "   -s,--special=SPECIAL         Mode specific control",
-   "   -C,--command=COMMAND         Special command"
+   "   -C,--command=COMMAND         Special command",
+   "   -U,--url                     Print request URL"
 }
 
 local DESCRIPTION = {
@@ -843,6 +847,8 @@ local function main(...)
          cfg.logfilename = v
       elseif k == "C" then
 	 command = v
+      elseif k == "U" then
+	 showurl = true
       end
    end
    if cfg.password == nil then
