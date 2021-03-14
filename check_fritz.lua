@@ -14,6 +14,20 @@ local format, tinsert = string.format, table.insert
 local command = ""
 local showurl = false
 
+local cfg = {
+   host = "fritz.box",
+   port = 49000,
+   warn = 0,
+   warnp = 0,
+   crit= 0,
+   critp = 0,
+   mode = nil,
+   verbosity = 0,
+   logfilename = "tmp/check_fritz.log",
+   logfile = nil,
+   state = "OK"
+}
+
 -- Commands
 local commandlist = {
    "async", "showurl"
@@ -309,6 +323,7 @@ local function tr64_call(url, service, action, param)
       rnamespace, rmeth, rval, soap_headers, body = client.call(soap_param)
    end
 --   print("RESULT: ", rnamespace, rmeth, pretty.write(rval,""), pretty.write(_soap_headers, ""), _body, _opaque)
+--   print("RESULT: ", rnamespace, rmeth, pretty.write(rval,""))
    if rnamespace == nil then
       exitError(rmeth)
    end
@@ -456,8 +471,14 @@ local function tr64_calls(url)
    -- retrive the call list
    local res = tr64_call(url, services.contact, nil, nil)
    local url = res.NewCallListURL
-      -- read the call list xml file
+   -- read the call list xml file
+   -- We need to replace IPv6 address in returned URL by hostname, because
+   -- socket.http has an issue with IPv6 addresses
+   url = string.gsub(url, "%[(.+)%]", cfg.host)
    local b, c, h = http.request(url)
+   if c ~= 200 then
+      exitError("Cannot read call list %q", url)
+   end
    local t = lxp.parse(b)
    return t
 end
@@ -794,20 +815,6 @@ local checks = {
 
 local function main(...)
 
-   local cfg = {
-      host = "fritz.box",
-      port = 49000,
-      warn = 0,
-      warnp = 0,
-      crit= 0,
-      critp = 0,
-      mode = nil,
-      verbosity = 0,
-      logfilename = "tmp/check_fritz.log",
-      logfile = nil,
-      state = "OK"
-   }
-   
    optarg,optind = alt_getopt.get_opts (arg, "hVvH:C:i:m:w:c:u:P:s:L:", long_opts)
 
    for k,v in pairs(optarg) do
