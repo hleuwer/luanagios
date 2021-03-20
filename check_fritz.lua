@@ -30,7 +30,7 @@ local cfg = {
 
 -- Commands
 local commandlist = {
-   "async", "showurl"
+   "async", "showreq", "showurl"
 }
 -- Services database
 
@@ -192,7 +192,6 @@ local USAGE = {
    "   -V,--version                 Show version info",
    "   -s,--special=SPECIAL         Mode specific control",
    "   -C,--command=COMMAND         Special command",
-   "   -U,--url                     Print request URL"
 }
 
 local DESCRIPTION = {
@@ -215,6 +214,7 @@ local DESCRIPTION = {
    "There are some special commands for debug and test purposes:",
    "   - async     Asynchronous request using copas",
    "   - showreq   Show the request parameters",
+   "   - showurl   Show the call list url",
    " "
    
 }
@@ -303,7 +303,7 @@ local function tr64_call(url, service, action, param)
       end
       soap_param.opaque = "check-fritz"
    end
-   if string.find(command, "showurl") then
+   if string.find(command, "showreq") then
       printf("soap parameters: %s", pretty.write(soap_param))
    end
    if string.find(command, "async") then
@@ -474,6 +474,9 @@ local function tr64_calls(url)
    -- read the call list xml file
    -- We need to replace IPv6 address in returned URL by hostname, because
    -- socket.http has an issue with IPv6 addresses
+   if command == "showurl" then
+      printf("%s", url)
+   end
    url = string.gsub(url, "%[(.+)%]", cfg.host)
    local b, c, h = http.request(url)
    if c ~= 200 then
@@ -854,8 +857,6 @@ local function main(...)
          cfg.logfilename = v
       elseif k == "C" then
 	 command = v
-      elseif k == "U" then
-	 showurl = true
       end
    end
    if cfg.password == nil then
