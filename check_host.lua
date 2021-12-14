@@ -292,9 +292,9 @@ local function main(...)
       table.insert(pdata, string.format("load=%.1f%%", load))
       if verbosity > 0 then
          printf("Number of cores:        %2d", #t)
-         printf("Average load all cores: %2d %%", load)
+         printf("Average load all cores: %.1f %%", load)
          for i, e in ipairs(t) do
-            printf("Load in core %d:         %2d %%", i, e.val)
+            printf("Load in core %d:         %.1f %%", i, e.val)
          end
       end
       rdata = {
