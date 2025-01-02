@@ -133,7 +133,7 @@ local retval = {
 }
 
 local USAGE = {
-   "usage: check_host -H hostname -C community OPTIONS",
+   "usage: check_weather -H hostname -C community OPTIONS",
    "   -l, --loc=NAME                Location name, e.g. Berlin",
    "   -g, --geo=LA,LO               Location coordinates, LATITUDE,LONGITUDE",
    "   -m, --mode=MODE               Mode: current, forecast, history or location",
