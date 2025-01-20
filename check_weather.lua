@@ -334,11 +334,10 @@ local function printWeather(t, units)
    if t.snow then
       printf("  snow       : %d mm/h", t.snow["1h"])
    end
-   printf("SUN:")
    printf("  date & time: %s", date(t.dt))
+   printf("SUN:")
    printf("  sunrise    : %s", time(t.sunrise))
    printf("  sunset     : %s", time(t.sunset))
-
 end
 
 local function createRdata(state, name, tl, t, units, out)
@@ -594,9 +593,10 @@ local function main(...)
 	       printf("DAILY FORECAST")
 	       for k, u in ipairs(t.daily) do
 		  if k > 1 then
-		     printf("  %s: sun rise/set: %s/%s temp day/night: %.1f/%.1f %s humidity: %s %% wind: %.1f %s at %d deg %s",
+		     printf("  %s: sun rise/set: %s/%s moon: %d %% temp day/night: %.1f/%.1f %s humidity: %s %% wind: %.1f %s at %d deg %s",
 			    os.date("%d.%m.%Y", u.dt), 
 			    os.date("%H:%M", u.sunrise), os.date("%H:%M", u.sunset),
+			    u.moon_phase*100,
 			    u.temp.day, u.temp.night, gU("temp", units), u.humidity,
 			    u.wind_speed, gU("wind", units), u.wind_deg,
 			    u.weather[1].description)
